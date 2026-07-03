@@ -1,8 +1,21 @@
 import { DecimalPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject, input, resource, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  input,
+  resource,
+  signal,
+  ElementRef,
+  viewChild,
+  viewChildren,
+  afterNextRender,
+  effect
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
+import gsap from 'gsap';
+
 import { UiBadge } from '../../../shared/ui/badge/badge';
-import { UiButton } from '../../../shared/ui/button/button';
 import { UiInput } from '../../../shared/ui/input/input';
 import { UiModal } from '../../../shared/ui/modal/modal';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -10,105 +23,219 @@ import { InvoicesService } from '../../../core/services/invoices.service';
 import { PaymentsService } from '../../../core/services/payments.service';
 import { INVOICE_STATUS_COLOR, INVOICE_STATUS_LABEL } from '../../../core/models/invoice.model';
 import { PAYMENT_METHOD_LABEL, PaymentMethod } from '../../../core/models/payment.model';
+import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
+import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
 @Component({
   selector: 'app-invoice-detail',
   standalone: true,
-  imports: [RouterLink, UiBadge, UiButton, UiInput, UiModal, DecimalPipe],
+  imports: [RouterLink, UiBadge, UiInput, UiModal, DecimalPipe, TenantSidebar, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="max-w-2xl mx-auto p-6">
-      <a routerLink="/invoices" class="text-sm text-slate-500 hover:text-primary mb-4 inline-block">
-        &larr; Danh sách hóa đơn
-      </a>
-
-      @if (invoice.isLoading()) {
-        <p class="text-slate-500 text-sm">Đang tải...</p>
-      } @else if (invoice.value(); as inv) {
-        <div class="rounded-2xl border border-slate-200 bg-white p-6 mb-6">
-          <div class="flex items-center justify-between mb-4">
-            <h1 class="text-xl font-semibold text-slate-900">Hóa đơn tháng {{ inv.month }}/{{ inv.year }}</h1>
-            <ui-badge [colorClass]="INVOICE_STATUS_COLOR[inv.status]">{{ INVOICE_STATUS_LABEL[inv.status] }}</ui-badge>
-          </div>
-
-          <dl class="grid grid-cols-2 gap-y-2 text-sm mb-4">
-            <dt class="text-slate-500">Tiền phòng</dt>
-            <dd class="text-slate-900 text-right">{{ inv.rent_amount | number }} đ</dd>
-
-            <dt class="text-slate-500">Điện ({{ inv.electric_old }} → {{ inv.electric_new }})</dt>
-            <dd class="text-slate-900 text-right">{{ inv.electric_amount | number }} đ</dd>
-
-            <dt class="text-slate-500">Nước ({{ inv.water_old }} → {{ inv.water_new }})</dt>
-            <dd class="text-slate-900 text-right">{{ inv.water_amount | number }} đ</dd>
-
-            <dt class="text-slate-500">Phí quản lý</dt>
-            <dd class="text-slate-900 text-right">{{ inv.management_fee_amount | number }} đ</dd>
-
-            @if (inv.other_fees) {
-              <dt class="text-slate-500">{{ inv.other_note || 'Phí khác' }}</dt>
-              <dd class="text-slate-900 text-right">{{ inv.other_fees | number }} đ</dd>
-            }
-
-            <dt class="text-slate-700 font-medium pt-2 border-t border-slate-100">Tổng cộng</dt>
-            <dd class="text-slate-900 font-semibold text-right pt-2 border-t border-slate-100">
-              {{ inv.total_amount | number }} đ
-            </dd>
-
-            <dt class="text-slate-500">Đã thanh toán</dt>
-            <dd class="text-slate-900 text-right">{{ inv.paid_amount | number }} đ</dd>
-
-            <dt class="text-slate-500">Còn lại</dt>
-            <dd class="text-red-600 font-medium text-right">{{ (inv.total_amount - inv.paid_amount) | number }} đ</dd>
-          </dl>
-
-          <div class="flex gap-2 pt-4 border-t border-slate-100">
-            <ui-button variant="secondary" (click)="loadQr()" [loading]="loadingQr()">Xem mã QR</ui-button>
-            @if (auth.isManager() && inv.status !== 'paid' && inv.status !== 'cancelled') {
-              <ui-button (click)="openPaymentModal()">Ghi nhận thanh toán</ui-button>
-            }
-          </div>
-
-          @if (qrCodeUrl()) {
-            <img [src]="qrCodeUrl()" alt="VietQR" class="mt-4 rounded-lg border border-slate-200 max-w-xs" />
-          }
-
-          @if (errorMessage()) {
-            <p class="text-sm text-red-600 mt-3">{{ errorMessage() }}</p>
-          }
-        </div>
+    <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
+      <!-- Sidebar theo vai trò -->
+      @if (auth.isManager()) {
+        <app-manager-sidebar />
+      } @else {
+        <app-tenant-sidebar />
       }
 
-      <h2 class="text-lg font-semibold text-slate-900 mb-3">Lịch sử thanh toán</h2>
-      @if (payments.isLoading()) {
-        <p class="text-slate-500 text-sm">Đang tải...</p>
-      } @else {
-        <div class="flex flex-col gap-2">
-          @for (p of payments.value()?.data ?? []; track p.id) {
-            <div class="rounded-lg border border-slate-200 bg-white p-3 text-sm flex justify-between items-center">
-              <div>
-                <span class="text-slate-700">{{ PAYMENT_METHOD_LABEL[p.method] }}</span>
-                @if (p.is_auto_confirmed) {
-                  <ui-badge colorClass="bg-blue-100 text-blue-700 ml-2">Tự động (SePay)</ui-badge>
+      <div class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]" style="background-image: url('/assets/images/dashboard-bg.jpg');"></div>
+      <div class="pointer-events-none absolute inset-0 -z-20 bg-linear-to-b from-[#FBF7ED]/60 via-[#FBF7ED]/85 to-[#FBF7ED]"></div>
+
+      <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+        <div #blob1 class="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-linear-to-br from-[#FFC629]/35 to-[#FFE29A]/20 blur-3xl"></div>
+        <div #blob2 class="absolute top-1/2 -right-24 h-80 w-80 rounded-full bg-linear-to-br from-[#FFD764]/25 to-[#FFC629]/15 blur-3xl"></div>
+      </div>
+
+      <div class="relative md:pl-64">
+        <div class="max-w-4xl mx-auto p-6 md:p-10">
+          
+          <!-- Header -->
+          <div #hero class="mb-8 opacity-0">
+            <a routerLink="/invoices" class="inline-flex items-center gap-2 text-sm font-medium text-[#8A8270] hover:text-[#B8860B] transition-colors mb-4">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Danh sách hóa đơn
+            </a>
+            <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-[#221D0F]">Chi tiết hóa đơn</h1>
+          </div>
+
+          <!-- Main Content -->
+          @if (invoice.isLoading()) {
+            <div class="flex justify-center py-10">
+              <p class="text-sm text-[#8A8270] animate-pulse">Đang tải thông tin hóa đơn...</p>
+            </div>
+          } @else if (invoice.value(); as inv) {
+            <div #mainCard class="relative overflow-hidden rounded-3xl border border-[#EFE6CC] bg-white p-6 md:p-8 shadow-[0_2px_14px_rgba(34,29,15,0.05)] mb-8 opacity-0">
+              <div class="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#FFC629]/10 blur-2xl pointer-events-none"></div>
+
+              <div class="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-[#F1EBD8]">
+                <div class="flex items-center gap-4">
+                  <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-[#221D0F] text-[#FFC629] border border-[#EFE6CC]">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v14a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 class="text-2xl font-bold text-[#221D0F]">Kỳ thanh toán {{ inv.month }}/{{ inv.year }}</h2>
+                    <p class="text-sm text-[#8A8270] mt-1 uppercase tracking-wider">Mã HĐ: <span class="font-semibold text-[#221D0F]">{{ inv.id }}</span></p>
+                  </div>
+                </div>
+                <ui-badge [colorClass]="INVOICE_STATUS_COLOR[inv.status]">
+                  {{ INVOICE_STATUS_LABEL[inv.status] }}
+                </ui-badge>
+              </div>
+
+              <!-- Chi tiết các khoản phí -->
+              <div class="relative mb-6 rounded-2xl bg-[#FBF7ED] border border-[#F1EBD8] overflow-hidden">
+                <div class="grid grid-cols-1 divide-y divide-[#F1EBD8]">
+                  
+                  <div class="flex justify-between p-4 items-center">
+                    <span class="text-sm font-medium text-[#6B6455]">Tiền thuê phòng</span>
+                    <span class="font-bold text-[#221D0F]">{{ inv.rent_amount | number }} ₫</span>
+                  </div>
+                  
+                  <div class="flex justify-between p-4 items-center">
+                    <div>
+                      <span class="text-sm font-medium text-[#6B6455] block">Tiền điện</span>
+                      <span class="text-xs text-[#8A8270]">Số cũ: {{ inv.electric_old }} &rarr; Số mới: {{ inv.electric_new }}</span>
+                    </div>
+                    <span class="font-bold text-[#221D0F]">{{ inv.electric_amount | number }} ₫</span>
+                  </div>
+
+                  <div class="flex justify-between p-4 items-center">
+                    <div>
+                      <span class="text-sm font-medium text-[#6B6455] block">Tiền nước</span>
+                      <span class="text-xs text-[#8A8270]">Số cũ: {{ inv.water_old }} &rarr; Số mới: {{ inv.water_new }}</span>
+                    </div>
+                    <span class="font-bold text-[#221D0F]">{{ inv.water_amount | number }} ₫</span>
+                  </div>
+
+                  <div class="flex justify-between p-4 items-center">
+                    <span class="text-sm font-medium text-[#6B6455]">Phí quản lý & Dịch vụ</span>
+                    <span class="font-bold text-[#221D0F]">{{ inv.management_fee_amount | number }} ₫</span>
+                  </div>
+
+                  @if (inv.other_fees) {
+                    <div class="flex justify-between p-4 items-center bg-white/50">
+                      <span class="text-sm font-medium text-[#6B6455]">{{ inv.other_note || 'Phụ phí khác' }}</span>
+                      <span class="font-bold text-[#221D0F]">{{ inv.other_fees | number }} ₫</span>
+                    </div>
+                  }
+                </div>
+              </div>
+
+              <!-- TỔNG CỘNG -->
+              <div class="relative pt-4 flex flex-col gap-3">
+                <div class="flex justify-between items-center text-lg">
+                  <span class="font-bold text-[#221D0F]">TỔNG CỘNG</span>
+                  <span class="font-black text-2xl text-[#221D0F]">{{ inv.total_amount | number }} ₫</span>
+                </div>
+                
+                <div class="flex justify-between items-center text-sm border-t border-dashed border-[#EFE6CC] pt-3">
+                  <span class="font-medium text-[#8A8270]">Đã thanh toán</span>
+                  <span class="font-bold text-green-600">{{ inv.paid_amount | number }} ₫</span>
+                </div>
+                
+                <div class="flex justify-between items-center text-sm border-t border-dashed border-[#EFE6CC] pt-3">
+                  <span class="font-bold text-[#221D0F]">SỐ TIỀN CÒN LẠI</span>
+                  <span class="font-bold text-[#9A3412] text-lg">{{ (inv.total_amount - inv.paid_amount) | number }} ₫</span>
+                </div>
+              </div>
+
+              <!-- Nút hành động -->
+              <div class="relative flex flex-wrap gap-3 mt-8 pt-6 border-t border-[#F1EBD8]">
+                <button (click)="loadQr()" class="flex items-center gap-2 rounded-full bg-[#F1EBD8] px-6 py-2.5 text-sm font-semibold text-[#221D0F] transition hover:bg-[#E9E4D6] disabled:opacity-60" [disabled]="loadingQr()">
+                  @if (loadingQr()) {
+                    Đang tạo mã QR...
+                  } @else {
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                    Quét mã thanh toán (VietQR)
+                  }
+                </button>
+                
+                @if (auth.isManager() && inv.status !== 'paid' && inv.status !== 'cancelled') {
+                  <button (click)="openPaymentModal()" class="flex items-center gap-2 rounded-full bg-[#FFC629] px-6 py-2.5 text-sm font-bold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764]">
+                    Ghi nhận thanh toán tay
+                  </button>
                 }
               </div>
-              <span class="text-slate-900 font-medium">{{ p.amount | number }} đ</span>
+
+              <!-- Hiển thị QR Code -->
+              @if (qrCodeUrl()) {
+                <div class="mt-6 p-6 rounded-2xl bg-[#FBF7ED] border border-[#EFE6CC] flex flex-col items-center justify-center text-center">
+                  <p class="text-sm font-bold text-[#221D0F] mb-3">Mã QR Thanh Toán Tự Động</p>
+                  <img [src]="qrCodeUrl()" alt="VietQR" class="rounded-xl border-4 border-white shadow-sm max-w-50" />
+                  <p class="text-xs text-[#8A8270] mt-3">Sử dụng App Ngân hàng bất kỳ để quét mã.<br/>Hệ thống sẽ tự động đối soát ngay lập tức.</p>
+                </div>
+              }
+
+              @if (errorMessage()) {
+                <div class="mt-6 flex items-center gap-3 rounded-xl bg-[#F4D9D2] p-4 text-sm font-medium text-[#9A3412]">
+                  <p>{{ errorMessage() }}</p>
+                </div>
+              }
             </div>
-          } @empty {
-            <p class="text-slate-400 text-sm">Chưa có thanh toán nào.</p>
+          }
+
+          <!-- Lịch sử Thanh Toán -->
+          <div #txHeader class="mb-4 opacity-0">
+            <h3 class="text-lg font-bold text-[#221D0F]">Lịch sử nộp tiền</h3>
+            <p class="text-sm text-[#8A8270]">Chi tiết các lần thanh toán cho hóa đơn này</p>
+          </div>
+
+          @if (payments.isLoading()) {
+            <p class="text-sm text-[#8A8270] animate-pulse">Đang nạp lịch sử giao dịch...</p>
+          } @else {
+            <div class="space-y-2.5">
+              @for (p of payments.value()?.data ?? []; track p.id) {
+                <div #txCard class="rounded-2xl border border-[#EFE6CC] bg-white p-4 text-sm flex justify-between items-center opacity-0 shadow-[0_2px_8px_rgba(34,29,15,0.02)]">
+                  <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-full bg-[#E5F5E9] text-[#166534]">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <div>
+                      <span class="text-[#221D0F] font-bold block">{{ PAYMENT_METHOD_LABEL[p.method] }}</span>
+                      @if (p.is_auto_confirmed) {
+                        <span class="text-xs text-blue-600 font-medium mt-0.5">Xác nhận tự động qua ngân hàng</span>
+                      } @else {
+                        <span class="text-xs text-[#8A8270] font-medium mt-0.5">Ghi nhận thủ công</span>
+                      }
+                    </div>
+                  </div>
+                  <span class="font-black text-[#166534] text-lg">+ {{ p.amount | number }} ₫</span>
+                </div>
+              } @empty {
+                <div #txCard class="rounded-2xl border border-dashed border-[#D8D2C2] bg-white/50 p-6 text-center opacity-0">
+                  <p class="text-sm text-[#8A8270]">Chưa có khoản thanh toán nào được ghi nhận.</p>
+                </div>
+              }
+            </div>
           }
         </div>
-      }
+      </div>
     </div>
 
-    <ui-modal [open]="paymentModalOpen()" title="Ghi nhận thanh toán" (closeRequested)="paymentModalOpen.set(false)">
-      <div class="flex flex-col gap-3">
-        <ui-input label="Số tiền" type="number" [(value)]="paymentAmount" />
+    <!-- MODAL Ghi nhận thanh toán -->
+    <ui-modal [open]="paymentModalOpen()" title="Xác nhận khách nộp tiền" (closeRequested)="paymentModalOpen.set(false)">
+      <div class="flex flex-col gap-4">
+        <ui-input label="Nhập số tiền khách đã nộp (₫)" type="number" [(value)]="paymentAmount" />
+        
         @if (errorMessage()) {
-          <p class="text-sm text-red-600">{{ errorMessage() }}</p>
+          <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
         }
-        <div class="flex gap-2 justify-end">
-          <ui-button variant="secondary" (click)="paymentModalOpen.set(false)">Hủy</ui-button>
-          <ui-button (click)="onRecordPayment()" [loading]="submittingPayment()">Xác nhận</ui-button>
+        
+        <div class="flex gap-2 justify-end pt-2">
+          <button type="button" (click)="paymentModalOpen.set(false)" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy bỏ</button>
+          <button type="button" (click)="onRecordPayment()" [disabled]="submittingPayment()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
+            {{ submittingPayment() ? 'Đang xử lý...' : 'Xác nhận thu tiền' }}
+          </button>
         </div>
       </div>
     </ui-modal>
@@ -139,12 +266,64 @@ export class InvoiceDetailPage {
   INVOICE_STATUS_LABEL = INVOICE_STATUS_LABEL;
   PAYMENT_METHOD_LABEL = PAYMENT_METHOD_LABEL;
 
+  private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');
+  private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
+  private hero = viewChild<ElementRef<HTMLElement>>('hero');
+  private mainCard = viewChild<ElementRef<HTMLElement>>('mainCard');
+  private txHeader = viewChild<ElementRef<HTMLElement>>('txHeader');
+  private txCards = viewChildren<ElementRef<HTMLElement>>('txCard');
+
+  private layoutAnimated = false;
+  private cardAnimated = false;
+  private txAnimated = false;
+
+  constructor() {
+    afterNextRender(() => {
+      if (this.layoutAnimated) return;
+      this.layoutAnimated = true;
+
+      const blob1El = this.blob1()?.nativeElement;
+      const blob2El = this.blob2()?.nativeElement;
+      const heroEl = this.hero()?.nativeElement;
+
+      const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+      if (blob1El && blob2El) tl.fromTo([blob1El, blob2El], { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.6 });
+      if (heroEl) tl.fromTo(heroEl, { x: -16, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4 }, '-=0.4');
+
+      if (blob1El) gsap.to(blob1El, { x: 20, y: 15, duration: 6, ease: 'sine.inOut', repeat: -1, yoyo: true });
+      if (blob2El) gsap.to(blob2El, { x: -15, y: -20, duration: 7, ease: 'sine.inOut', repeat: -1, yoyo: true });
+    });
+
+    effect(() => {
+      const card = this.mainCard()?.nativeElement;
+      if (card && this.invoice.value() && !this.cardAnimated) {
+        this.cardAnimated = true;
+        setTimeout(() => {
+          gsap.fromTo(card, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' });
+        }, 50);
+      }
+    });
+
+    effect(() => {
+      const h = this.txHeader()?.nativeElement;
+      const cards = this.txCards().map(c => c.nativeElement).filter((el): el is HTMLElement => !!el);
+
+      if (this.payments.value() && !this.txAnimated) {
+        this.txAnimated = true;
+        setTimeout(() => {
+          const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+          if (h) tl.fromTo(h, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3 });
+          if (cards.length) tl.fromTo(cards, { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, stagger: 0.08 }, '-=0.1');
+        }, 50);
+      }
+    });
+  }
+
   async loadQr() {
     this.errorMessage.set('');
     this.loadingQr.set(true);
     try {
       const qr = await this.invoicesService.getQrCode(this.id());
-      // Giả định backend trả base64 hoặc URL ảnh trực tiếp — điều chỉnh nếu format khác (xem ghi chú trong InvoicesService)
       this.qrCodeUrl.set(qr.startsWith('http') || qr.startsWith('data:') ? qr : `data:image/png;base64,${qr}`);
     } catch (err: any) {
       this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Không tạo được mã QR.');
@@ -164,7 +343,6 @@ export class InvoiceDetailPage {
     this.errorMessage.set('');
     this.submittingPayment.set(true);
     try {
-      // Backend chặn vượt số tiền còn lại (luật #3)
       await this.paymentsService.create({
         invoice_id: this.id(),
         amount: Number(this.paymentAmount()),
