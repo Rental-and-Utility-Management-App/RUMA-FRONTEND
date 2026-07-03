@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   inject,
+  signal,
   ElementRef,
   viewChild,
   viewChildren,
@@ -164,10 +165,7 @@ import { ManagerSidebar } from '../components/sidebars/manager-sidebar';
             <div class="relative flex flex-col md:flex-row md:items-center md:justify-between gap-5">
               <div>
                 <p class="text-xs font-medium uppercase tracking-wider text-[#FFC629]">Tỷ lệ lấp đầy</p>
-                <p class="mt-1 text-2xl font-bold text-white">
-                  {{ totalRoomsCount() > 0 ? (((totalRoomsCount() - availableRoomsCount()) / totalRoomsCount()) * 100 | number: '1.0-0') : 0 }}%
-                  phòng đang cho thuê
-                </p>
+                <p class="mt-1 text-2xl font-bold text-white">{{ occupiedPercent() }}% phòng đang cho thuê</p>
               </div>
               <div class="flex items-center gap-3">
                 <a
@@ -187,8 +185,105 @@ import { ManagerSidebar } from '../components/sidebars/manager-sidebar';
             <div class="relative mt-6 h-2 w-full overflow-hidden rounded-full bg-white/10">
               <div
                 class="h-full rounded-full bg-[#FFC629] transition-all duration-700"
-                [style.width.%]="totalRoomsCount() > 0 ? ((totalRoomsCount() - availableRoomsCount()) / totalRoomsCount()) * 100 : 0"
+                [style.width.%]="chartsAnimated() ? occupiedPercent() : 0"
               ></div>
+            </div>
+          </div>
+
+          <!-- Biểu đồ -->
+          <div class="grid grid-cols-1 lg:grid-cols-5 gap-5 mt-6">
+            <!-- Bar chart: doanh thu 6 tháng -->
+            <div class="lg:col-span-3 rounded-3xl border border-[#EFE6CC] bg-white p-6 shadow-[0_2px_14px_rgba(34,29,15,0.05)]">
+              <div class="flex items-center justify-between mb-6">
+                <div>
+                  <p class="text-sm text-[#8A8270]">Doanh thu 6 tháng gần nhất</p>
+                  <p class="text-xl font-bold text-[#221D0F]">{{ revenueChart[revenueChart.length - 1].value }} triệu ₫</p>
+                </div>
+                <span class="rounded-full bg-[#FFF6DC] px-3 py-1 text-xs font-semibold text-[#8A6200]">Dữ liệu minh họa</span>
+              </div>
+              <div class="flex items-end justify-between gap-3 h-40">
+                @for (item of revenueChart; track item.label) {
+                  <div class="flex flex-1 flex-col items-center gap-2">
+                    <div class="relative flex h-32 w-full items-end justify-center overflow-hidden rounded-xl bg-[#FBF7ED]">
+                      <div
+                        class="w-8 rounded-t-lg bg-linear-to-t from-[#FFC629] to-[#FFE29A] transition-[height] duration-700 ease-out"
+                        [style.height.%]="chartsAnimated() ? (item.value / maxRevenue) * 100 : 0"
+                      ></div>
+                    </div>
+                    <span class="text-xs font-medium text-[#8A8270]">{{ item.label }}</span>
+                  </div>
+                }
+              </div>
+            </div>
+
+            <!-- Donut chart: tỷ lệ lấp đầy -->
+            <div class="lg:col-span-2 rounded-3xl border border-[#EFE6CC] bg-white p-6 shadow-[0_2px_14px_rgba(34,29,15,0.05)] flex flex-col items-center justify-center">
+              <p class="self-start text-sm text-[#8A8270] mb-2">Tỷ lệ lấp đầy phòng</p>
+              <div class="relative flex items-center justify-center">
+                <svg width="160" height="160" viewBox="0 0 140 140">
+                  <circle cx="70" cy="70" r="54" fill="none" stroke="#F1EBD8" stroke-width="14" />
+                  <circle
+                    cx="70"
+                    cy="70"
+                    r="54"
+                    fill="none"
+                    stroke="#FFC629"
+                    stroke-width="14"
+                    stroke-linecap="round"
+                    [attr.stroke-dasharray]="donutCircumference"
+                    [style.strokeDashoffset]="chartsAnimated() ? donutDashOffset() : donutCircumference"
+                    style="transition: stroke-dashoffset 0.9s ease-out"
+                    transform="rotate(-90 70 70)"
+                  />
+                </svg>
+                <div class="absolute flex flex-col items-center">
+                  <span class="text-2xl font-bold text-[#221D0F]">{{ occupiedPercent() }}%</span>
+                  <span class="text-xs text-[#8A8270]">đang thuê</span>
+                </div>
+              </div>
+              <div class="mt-4 flex items-center gap-4 text-xs">
+                <div class="flex items-center gap-1.5">
+                  <span class="h-2 w-2 rounded-full bg-[#FFC629]"></span>
+                  <span class="text-[#6B6455]">Đang thuê</span>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="h-2 w-2 rounded-full bg-[#F1EBD8]"></span>
+                  <span class="text-[#6B6455]">Còn trống</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Phòng sắp đến hạn / quá hạn đóng tiền -->
+          <div class="rounded-3xl border border-[#EFE6CC] bg-white p-6 shadow-[0_2px_14px_rgba(34,29,15,0.05)] mt-5">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <p class="text-base font-semibold text-[#221D0F]">Phòng sắp đến hạn đóng tiền</p>
+                <p class="text-sm text-[#8A8270]">Dữ liệu minh họa — sẽ nối API hóa đơn sau</p>
+              </div>
+              <a routerLink="/invoices" class="text-sm font-semibold text-[#8A6200] hover:underline">Xem tất cả</a>
+            </div>
+
+            <div class="divide-y divide-[#F1EBD8]">
+              @for (item of upcomingDuePayments; track item.room) {
+                <div class="flex items-center justify-between gap-4 py-3">
+                  <div class="flex items-center gap-3">
+                    <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FBF7ED] text-sm font-semibold text-[#8A6200]">
+                      {{ item.room.slice(1) }}
+                    </div>
+                    <div>
+                      <p class="text-sm font-semibold text-[#221D0F]">{{ item.room }} · {{ item.tenant }}</p>
+                      <p class="text-xs text-[#8A8270]">Hạn: {{ item.dueDate }}</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-3">
+                    <span class="text-sm font-semibold text-[#221D0F]">{{ item.amount | number: '1.0-0' }} ₫</span>
+                    <span class="rounded-full px-3 py-1 text-xs font-semibold" [class]="dueStatusClass(item.daysLeft)">
+                      {{ dueStatusLabel(item.daysLeft) }}
+                    </span>
+                  </div>
+                </div>
+              }
             </div>
           </div>
         </div>
@@ -213,6 +308,57 @@ export class DashboardPage {
   today = computed(() =>
     new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
   );
+
+  // Tỷ lệ phòng đang cho thuê, dùng chung cho progress bar và donut chart
+  occupiedPercent = computed(() =>
+    this.totalRoomsCount() > 0
+      ? Math.round(((this.totalRoomsCount() - this.availableRoomsCount()) / this.totalRoomsCount()) * 100)
+      : 0
+  );
+
+  // Chu vi vòng tròn donut (r = 54) và độ lệch nét vẽ theo % lấp đầy
+  readonly donutCircumference = 2 * Math.PI * 54;
+  donutDashOffset = computed(() => this.donutCircumference * (1 - this.occupiedPercent() / 100));
+
+  // Cờ kích hoạt animation cho biểu đồ (bar + donut) sau khi vào trang
+  chartsAnimated = signal(false);
+
+  // --- MOCK DATA: doanh thu 6 tháng gần nhất (triệu VNĐ) ---
+  readonly revenueChart: { label: string; value: number }[] = [
+    { label: 'T2', value: 42 },
+    { label: 'T3', value: 38 },
+    { label: 'T4', value: 51 },
+    { label: 'T5', value: 47 },
+    { label: 'T6', value: 60 },
+    { label: 'T7', value: 55 },
+  ];
+  readonly maxRevenue = Math.max(...this.revenueChart.map((r) => r.value));
+
+  // --- MOCK DATA: phòng sắp đến hạn / quá hạn đóng tiền ---
+  readonly upcomingDuePayments: {
+    room: string;
+    tenant: string;
+    dueDate: string;
+    amount: number;
+    daysLeft: number;
+  }[] = [
+    { room: 'P.309', tenant: 'Lê Văn C', dueDate: '01/07/2026', amount: 4200000, daysLeft: -2 },
+    { room: 'P.101', tenant: 'Nguyễn Văn A', dueDate: '05/07/2026', amount: 3500000, daysLeft: 2 },
+    { room: 'P.204', tenant: 'Trần Thị B', dueDate: '07/07/2026', amount: 2800000, daysLeft: 4 },
+    { room: 'P.112', tenant: 'Phạm Thị D', dueDate: '10/07/2026', amount: 3000000, daysLeft: 7 },
+  ];
+
+  dueStatusLabel(daysLeft: number): string {
+    if (daysLeft < 0) return `Quá hạn ${Math.abs(daysLeft)} ngày`;
+    if (daysLeft === 0) return 'Đến hạn hôm nay';
+    return `Còn ${daysLeft} ngày`;
+  }
+
+  dueStatusClass(daysLeft: number): string {
+    if (daysLeft < 0) return 'bg-[#F4D9D2] text-[#9A3412]';
+    if (daysLeft <= 3) return 'bg-[#FFE9AC] text-[#8A6200]';
+    return 'bg-[#E9E4D6] text-[#6B6455]';
+  }
 
   // Refs
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');
@@ -243,27 +389,30 @@ export class DashboardPage {
       if (blob1El && blob2El) {
         tl.fromTo(
           [blob1El, blob2El],
-          { opacity: 0, scale: 0.7 },
-          { opacity: 1, scale: 1, duration: 1.4, ease: 'power2.out' }
+          { opacity: 0, scale: 0.85 },
+          { opacity: 1, scale: 1, duration: 0.6, ease: 'power2.out' }
         );
       }
 
       if (heroEl) {
-        tl.fromTo(heroEl, { y: -20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.6 }, '-=1');
+        tl.fromTo(heroEl, { y: -12, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35 }, '-=0.45');
       }
 
       if (cardEls.length) {
         tl.fromTo(
           cardEls,
-          { y: 30, opacity: 0, scale: 0.95 },
-          { y: 0, opacity: 1, scale: 1, duration: 0.6, stagger: 0.15 },
-          '-=0.3'
+          { y: 16, opacity: 0, scale: 0.97 },
+          { y: 0, opacity: 1, scale: 1, duration: 0.35, stagger: 0.07 },
+          '-=0.15'
         );
       }
 
       if (actionsElNode) {
-        tl.fromTo(actionsElNode, { y: 15, opacity: 0 }, { y: 0, opacity: 1, duration: 0.5 }, '-=0.2');
+        tl.fromTo(actionsElNode, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3 }, '-=0.15');
       }
+
+      // Kích hoạt animation cho biểu đồ ngay sau khi các khối chính xuất hiện
+      this.chartsAnimated.set(true);
 
       // Hiệu ứng "thở" nhẹ cho các blob nền
       if (blob1El) {
@@ -309,8 +458,8 @@ export class DashboardPage {
     const obj = { val: 0 };
     gsap.to(obj, {
       val: target,
-      duration: 1.2,
-      delay: 0.4,
+      duration: 0.7,
+      delay: 0.15,
       ease: 'power2.out',
       onUpdate: () => (el.textContent = Math.round(obj.val).toString()),
     });
