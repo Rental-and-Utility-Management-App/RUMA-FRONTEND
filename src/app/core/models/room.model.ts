@@ -1,3 +1,5 @@
+import { UserResponse } from './user.model';
+
 export type RoomStatus = 'available' | 'occupied';
 
 export interface Room {
@@ -16,4 +18,5 @@ export interface Room {
   note?: string;
   created_at: string; // ISO date
   updated_at: string;
+  tenants?: UserResponse[]; 
 }

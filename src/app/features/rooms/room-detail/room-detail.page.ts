@@ -23,7 +23,6 @@ import { DEPOSIT_STATUS_COLOR, DEPOSIT_STATUS_LABEL } from '../../../core/models
 import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
-// Đổi màu badge phòng cho khớp với theme mới
 const ROOM_STATUS_COLOR: Record<RoomStatus, string> = {
   available: 'bg-[#FFE9AC] text-[#8A6200]',
   occupied: 'bg-[#E9E4D6] text-[#6B6455]',
@@ -40,36 +39,23 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
-      <!-- Sidebar theo vai trò -->
       @if (auth.isManager()) {
         <app-manager-sidebar />
       } @else {
         <app-tenant-sidebar />
       }
 
-      <!-- Ảnh nền mờ chìm -->
-      <div
-        class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]"
-        style="background-image: url('/assets/images/dashboard-bg.jpg');"
-      ></div>
+      <div class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]" style="background-image: url('/assets/images/dashboard-bg.jpg');"></div>
       <div class="pointer-events-none absolute inset-0 -z-20 bg-linear-to-b from-[#FBF7ED]/60 via-[#FBF7ED]/85 to-[#FBF7ED]"></div>
 
-      <!-- Nền gradient động -->
       <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div
-          #blob1
-          class="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-linear-to-br from-[#FFC629]/35 to-[#FFE29A]/20 blur-3xl"
-        ></div>
-        <div
-          #blob2
-          class="absolute top-1/2 -right-24 h-80 w-80 rounded-full bg-linear-to-br from-[#FFD764]/25 to-[#FFC629]/15 blur-3xl"
-        ></div>
+        <div #blob1 class="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-linear-to-br from-[#FFC629]/35 to-[#FFE29A]/20 blur-3xl"></div>
+        <div #blob2 class="absolute top-1/2 -right-24 h-80 w-80 rounded-full bg-linear-to-br from-[#FFD764]/25 to-[#FFC629]/15 blur-3xl"></div>
       </div>
 
       <div class="relative md:pl-64">
         <div class="max-w-4xl mx-auto p-6 md:p-10">
           
-          <!-- Nút quay lại & Header -->
           <div #hero class="mb-8 opacity-0">
             <a routerLink="/rooms" class="inline-flex items-center gap-2 text-sm font-medium text-[#8A8270] hover:text-[#B8860B] transition-colors mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -82,7 +68,6 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
             </h1>
           </div>
 
-          <!-- Trạng thái Loading / Error -->
           @if (room.isLoading()) {
             <div class="flex items-center justify-center py-10">
               <p class="text-sm text-[#8A8270] animate-pulse">Đang tải thông tin phòng...</p>
@@ -92,9 +77,9 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
               <p class="text-sm font-medium text-[#9A3412]">Không tải được thông tin phòng. Vui lòng thử lại.</p>
             </div>
           } @else if (room.value(); as r) {
-            <!-- Thẻ thông tin phòng -->
+            
             <div #roomCard class="relative overflow-hidden rounded-3xl border border-[#EFE6CC] bg-white p-6 md:p-8 shadow-[0_2px_14px_rgba(34,29,15,0.05)] mb-8 opacity-0">
-              <div class="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#FFC629]/10 blur-2xl"></div>
+              <div class="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#FFC629]/10 blur-2xl pointer-events-none"></div>
               
               <div class="relative flex items-center justify-between mb-8 pb-6 border-b border-[#F1EBD8]">
                 <div class="flex items-center gap-4">
@@ -140,6 +125,29 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
                   </div>
                 }
               </div>
+
+              <!-- HIỂN THỊ DANH SÁCH NGƯỜI ĐANG Ở TRONG PHÒNG -->
+              @if (r.tenants && r.tenants.length > 0) {
+                <div class="relative mt-6 mb-8 pt-6 border-t border-[#F1EBD8]">
+                  <h3 class="text-sm font-bold text-[#221D0F] mb-4">Người đang ở ({{ r.tenants.length }})</h3>
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    @for (tenant of r.tenants; track tenant.id) {
+                      <a 
+                        [routerLink]="['/tenants', tenant.id]"
+                        class="group flex items-center gap-3 rounded-xl bg-[#FBF7ED] p-3 border border-[#EFE6CC] transition-all hover:bg-white hover:border-[#FFC629] hover:shadow-sm"
+                      >
+                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#8A6200] shadow-sm border border-[#EFE6CC] group-hover:bg-[#FFC629] group-hover:text-[#221D0F] transition-colors">
+                          {{ tenant.full_name.charAt(0).toUpperCase() }}
+                        </div>
+                        <div class="min-w-0 flex-1">
+                          <p class="text-sm font-bold text-[#221D0F] truncate" [title]="tenant.full_name">{{ tenant.full_name }}</p>
+                          <p class="text-xs text-[#8A8270] truncate">{{ tenant.phone }}</p>
+                        </div>
+                      </a>
+                    }
+                  </div>
+                </div>
+              }
 
               <!-- Nút hành động -->
               @if (auth.isManager()) {
@@ -240,7 +248,6 @@ export class RoomDetailPage {
   DEPOSIT_STATUS_COLOR = DEPOSIT_STATUS_COLOR;
   DEPOSIT_STATUS_LABEL = DEPOSIT_STATUS_LABEL;
 
-  // GSAP Refs
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');
   private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
   private hero = viewChild<ElementRef<HTMLElement>>('hero');
@@ -253,7 +260,6 @@ export class RoomDetailPage {
   private contractsAnimated = false;
 
   constructor() {
-    // 1. Animation Layout chung (chạy 1 lần ngay khi vào trang)
     afterNextRender(() => {
       if (this.layoutAnimated) return;
       this.layoutAnimated = true;
@@ -264,24 +270,13 @@ export class RoomDetailPage {
 
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
-      if (blob1El && blob2El) {
-        tl.fromTo(
-          [blob1El, blob2El],
-          { opacity: 0, scale: 0.85 },
-          { opacity: 1, scale: 1, duration: 0.6, ease: 'power2.out' }
-        );
-      }
+      if (blob1El && blob2El) tl.fromTo([blob1El, blob2El], { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.6 });
+      if (heroEl) tl.fromTo(heroEl, { x: -16, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4 }, '-=0.4');
 
-      if (heroEl) {
-        tl.fromTo(heroEl, { x: -16, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4 }, '-=0.4');
-      }
-
-      // Floating animation cho blobs
       if (blob1El) gsap.to(blob1El, { x: 20, y: 15, duration: 6, ease: 'sine.inOut', repeat: -1, yoyo: true });
       if (blob2El) gsap.to(blob2El, { x: -15, y: -20, duration: 7, ease: 'sine.inOut', repeat: -1, yoyo: true });
     });
 
-    // 2. Animation khi load xong thông tin chi tiết phòng
     effect(() => {
       const card = this.roomCardEl()?.nativeElement;
       if (card && this.room.value() && !this.roomAnimated) {
@@ -292,22 +287,16 @@ export class RoomDetailPage {
       }
     });
 
-    // 3. Animation khi load xong danh sách hợp đồng
     effect(() => {
       const header = this.contractsHeader()?.nativeElement;
-      const cards = this.contractCards()
-        .map((c) => c.nativeElement)
-        .filter((el): el is HTMLElement => !!el);
+      const cards = this.contractCards().map(c => c.nativeElement).filter(el => !!el);
 
       if (this.contracts.value() && !this.contractsAnimated) {
         this.contractsAnimated = true;
         setTimeout(() => {
           const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
-          
           if (header) tl.fromTo(header, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3 });
-          if (cards.length) {
-            tl.fromTo(cards, { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, stagger: 0.1 }, '-=0.1');
-          }
+          if (cards.length) tl.fromTo(cards, { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, stagger: 0.1 }, '-=0.1');
         }, 50);
       }
     });

@@ -1,3 +1,5 @@
+import { Room } from './room.model';
+
 export type Role = 'manager' | 'tenant';
 
 export interface UserResponse {
@@ -6,8 +8,9 @@ export interface UserResponse {
   phone: string;
   email?: string;
   role: Role;
-  room_id?: string; // chỉ tenant mới có
+  room_id?: string; 
   is_active: boolean;
+  room?: Room; 
 }
 
 export interface JwtPayload {

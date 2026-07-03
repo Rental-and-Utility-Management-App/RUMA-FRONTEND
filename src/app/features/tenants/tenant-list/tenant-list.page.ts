@@ -92,25 +92,23 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                   <div class="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#FFC629]/15 transition-transform duration-500 group-hover:scale-150"></div>
                   
                   <div class="relative flex items-start gap-4 mb-5">
-                    <!-- Avatar lớn hơn chút để cân đối 3 dòng chữ -->
                     <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#FBF7ED] text-xl font-bold text-[#8A6200] border border-[#F1EBD8]">
                       {{ u.full_name.charAt(0).toUpperCase() }}
                     </div>
                     
-                    <!-- Thông tin: Tên, SĐT, Phòng (Đã xếp chồng lên nhau) -->
                     <div class="min-w-0 flex-1 pt-0.5">
                       <h3 class="text-base font-bold text-[#221D0F] truncate" [title]="u.full_name">{{ u.full_name }}</h3>
                       <p class="text-sm text-[#8A8270] mt-0.5 mb-2.5 truncate">{{ u.phone }}</p>
                       
-                      <!-- Hiển thị thông tin Phòng nằm dưới SĐT -->
+                      <!-- SỬ DỤNG u.room.code THAY VÌ u.room_id -->
                       @if (u.room_id) {
                         <div class="flex items-center gap-1.5">
                           <span class="text-xs text-[#8A8270] shrink-0">Phòng:</span>
                           <span 
                             class="inline-block max-w-[160px] truncate rounded-md bg-[#FFC629] px-2 py-0.5 text-xs font-bold text-[#221D0F] shadow-sm"
-                            [title]="u.room_id"
+                            [title]="u.room?.code || u.room_id"
                           >
-                            {{ u.room_id }}
+                            {{ u.room?.code || u.room_id }}
                           </span>
                         </div>
                       } @else {
