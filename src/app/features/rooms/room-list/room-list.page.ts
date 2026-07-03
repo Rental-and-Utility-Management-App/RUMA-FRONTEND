@@ -6,7 +6,9 @@ import {
   viewChild,
   viewChildren,
   afterNextRender,
-  effect
+  effect,
+  signal,
+  computed
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { DecimalPipe } from '@angular/common';
@@ -20,8 +22,8 @@ import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
 const STATUS_COLOR: Record<RoomStatus, string> = {
-  available: 'bg-[#FFE9AC] text-[#8A6200]', // Màu vàng ấm cho phòng trống
-  occupied: 'bg-[#E9E4D6] text-[#6B6455]',  // Màu xám dịu cho phòng đã thuê
+  available: 'bg-[#FFE9AC] text-[#8A6200]',
+  occupied: 'bg-[#E9E4D6] text-[#6B6455]',
 };
 const STATUS_LABEL: Record<RoomStatus, string> = {
   available: 'Còn trống',
@@ -35,30 +37,18 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
-      <!-- Sidebar theo vai trò -->
       @if (auth.isManager()) {
         <app-manager-sidebar />
       } @else {
         <app-tenant-sidebar />
       }
 
-      <!-- Ảnh nền mờ chìm -->
-      <div
-        class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]"
-        style="background-image: url('/assets/images/dashboard-bg.jpg');"
-      ></div>
+      <div class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]" style="background-image: url('/assets/images/dashboard-bg.jpg');"></div>
       <div class="pointer-events-none absolute inset-0 -z-20 bg-linear-to-b from-[#FBF7ED]/60 via-[#FBF7ED]/85 to-[#FBF7ED]"></div>
 
-      <!-- Nền gradient động -->
       <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-        <div
-          #blob1
-          class="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-linear-to-br from-[#FFC629]/35 to-[#FFE29A]/20 blur-3xl"
-        ></div>
-        <div
-          #blob2
-          class="absolute top-1/2 -right-24 h-80 w-80 rounded-full bg-linear-to-br from-[#FFD764]/25 to-[#FFC629]/15 blur-3xl"
-        ></div>
+        <div #blob1 class="absolute -top-32 -left-32 h-96 w-96 rounded-full bg-linear-to-br from-[#FFC629]/35 to-[#FFE29A]/20 blur-3xl"></div>
+        <div #blob2 class="absolute top-1/2 -right-24 h-80 w-80 rounded-full bg-linear-to-br from-[#FFD764]/25 to-[#FFC629]/15 blur-3xl"></div>
       </div>
 
       <div class="relative md:pl-64">
@@ -93,6 +83,34 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
             }
           </div>
 
+          <!-- Bộ lọc & Tìm kiếm -->
+          <div #filterBar class="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-[#EFE6CC] bg-white p-4 shadow-[0_2px_10px_rgba(34,29,15,0.02)] opacity-0">
+            <div class="relative flex-1 min-w-60">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#8A8270]">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="Tìm theo mã phòng (VD: P.101)..."
+                (input)="searchQuery.set($any($event.target).value)"
+                class="w-full rounded-full border border-[#EFE6CC] bg-[#FBF7ED]/50 py-2 pl-10 pr-4 text-sm text-[#221D0F] placeholder-[#8A8270] focus:border-[#FFC629] focus:bg-white focus:outline-none transition-all"
+              />
+            </div>
+
+            <div class="shrink-0">
+              <select
+                (change)="statusFilter.set($any($event.target).value)"
+                class="rounded-full border border-[#EFE6CC] bg-[#FBF7ED]/50 px-4 py-2 text-sm text-[#221D0F] focus:border-[#FFC629] focus:bg-white focus:outline-none transition-all"
+              >
+                <option value="all">Tất cả trạng thái</option>
+                <option value="available">Còn trống</option>
+                <option value="occupied">Đã thuê</option>
+              </select>
+            </div>
+          </div>
+
           <!-- Content -->
           @if (rooms.isLoading()) {
             <div class="flex items-center justify-center py-10">
@@ -104,17 +122,14 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
             </div>
           } @else {
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              @for (room of rooms.value()?.data ?? []; track room.id) {
+              @for (room of filteredRooms(); track room.id) {
                 <a
                   #card
                   [routerLink]="['/rooms', room.id]"
                   class="group relative flex flex-col rounded-3xl border border-[#EFE6CC] bg-white p-6 shadow-[0_2px_14px_rgba(34,29,15,0.05)] opacity-0
                          transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(255,198,41,0.25)] overflow-hidden h-full"
                 >
-                  <!-- Vòng tròn hover chìm -->
-                  <div
-                    class="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#FFC629]/15 transition-transform duration-500 group-hover:scale-150"
-                  ></div>
+                  <div class="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#FFC629]/15 transition-transform duration-500 group-hover:scale-150"></div>
                   
                   <div class="relative flex items-center justify-between mb-5">
                     <div class="flex items-center gap-3">
@@ -152,7 +167,7 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
                 </a>
               } @empty {
                 <div class="col-span-full rounded-3xl border border-[#EFE6CC] bg-white p-10 text-center shadow-sm">
-                  <p class="text-[#8A8270]">Chưa có phòng nào trong hệ thống.</p>
+                  <p class="text-[#8A8270]">Không tìm thấy phòng nào phù hợp với bộ lọc.</p>
                 </div>
               }
             </div>
@@ -170,59 +185,56 @@ export class RoomListPage {
   STATUS_COLOR = STATUS_COLOR;
   STATUS_LABEL = STATUS_LABEL;
 
+  // --- STATE TÌM KIẾM VÀ LỌC ---
+  searchQuery = signal('');
+  statusFilter = signal('all');
+
+  filteredRooms = computed(() => {
+    const list = this.rooms.value()?.data ?? [];
+    const search = this.searchQuery().toLowerCase().trim();
+    const status = this.statusFilter();
+
+    return list.filter((r) => {
+      const matchesSearch = !search || r.code.toLowerCase().includes(search);
+      const matchesStatus = status === 'all' || r.status === status;
+      return matchesSearch && matchesStatus;
+    });
+  });
+
   // Refs cho animation
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');
   private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
   private hero = viewChild<ElementRef<HTMLElement>>('hero');
+  private filterBar = viewChild<ElementRef<HTMLElement>>('filterBar');
   private cards = viewChildren<ElementRef<HTMLElement>>('card');
   private animatedCards = false;
 
   constructor() {
-    // 1. Chạy animation nhập cảnh cho Layout/Header một lần sau khi view sẵn sàng
     afterNextRender(() => {
       const blob1El = this.blob1()?.nativeElement;
       const blob2El = this.blob2()?.nativeElement;
       const heroEl = this.hero()?.nativeElement;
+      const filterEl = this.filterBar()?.nativeElement;
 
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
-      // Hiện các gradient nền
-      if (blob1El && blob2El) {
-        tl.fromTo(
-          [blob1El, blob2El],
-          { opacity: 0, scale: 0.85 },
-          { opacity: 1, scale: 1, duration: 0.6, ease: 'power2.out' }
-        );
-      }
+      if (blob1El && blob2El) tl.fromTo([blob1El, blob2El], { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.6, ease: 'power2.out' });
+      if (heroEl) tl.fromTo(heroEl, { y: -12, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35 }, '-=0.45');
+      if (filterEl) tl.fromTo(filterEl, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3 }, '-=0.2');
 
-      // Hiện cụm Header
-      if (heroEl) {
-        tl.fromTo(heroEl, { y: -12, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35 }, '-=0.45');
-      }
-
-      // Hiệu ứng lơ lửng cho blobs
-      if (blob1El) {
-        gsap.to(blob1El, { x: 20, y: 15, duration: 6, ease: 'sine.inOut', repeat: -1, yoyo: true });
-      }
-      if (blob2El) {
-        gsap.to(blob2El, { x: -15, y: -20, duration: 7, ease: 'sine.inOut', repeat: -1, yoyo: true });
-      }
+      if (blob1El) gsap.to(blob1El, { x: 20, y: 15, duration: 6, ease: 'sine.inOut', repeat: -1, yoyo: true });
+      if (blob2El) gsap.to(blob2El, { x: -15, y: -20, duration: 7, ease: 'sine.inOut', repeat: -1, yoyo: true });
     });
 
-    // 2. Chạy animation cho danh sách phòng khi có dữ liệu trả về từ Server
     effect(() => {
-      const cardEls = this.cards()
-        .map((c) => c.nativeElement)
-        .filter((el): el is HTMLElement => !!el);
-
-      if (cardEls.length > 0 && !this.animatedCards) {
-        this.animatedCards = true;
-        // Dùng setTimeout nhỏ để đảm bảo Angular đã render DOM xong
+      const cardEls = this.cards().map((c) => c.nativeElement).filter((el): el is HTMLElement => !!el);
+      if (cardEls.length > 0) {
+        this.animatedCards = false;
         setTimeout(() => {
           gsap.fromTo(
             cardEls,
             { y: 16, opacity: 0, scale: 0.97 },
-            { y: 0, opacity: 1, scale: 1, duration: 0.35, stagger: 0.07, ease: 'power3.out' }
+            { y: 0, opacity: 1, scale: 1, duration: 0.35, stagger: 0.05, ease: 'power3.out' }
           );
         }, 50);
       }

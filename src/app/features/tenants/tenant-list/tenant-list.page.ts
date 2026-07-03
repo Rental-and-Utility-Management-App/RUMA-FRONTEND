@@ -7,6 +7,8 @@ import {
   viewChildren,
   afterNextRender,
   effect,
+  signal,
+  computed,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import gsap from 'gsap';
@@ -71,6 +73,34 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
             }
           </div>
 
+          <!-- Bộ lọc & Tìm kiếm -->
+          <div #filterBar class="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-[#EFE6CC] bg-white p-4 shadow-[0_2px_10px_rgba(34,29,15,0.02)] opacity-0">
+            <div class="relative flex-1 min-w-60">
+              <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#8A8270]">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="Tìm theo tên hoặc số điện thoại..."
+                (input)="searchQuery.set($any($event.target).value)"
+                class="w-full rounded-full border border-[#EFE6CC] bg-[#FBF7ED]/50 py-2 pl-10 pr-4 text-sm text-[#221D0F] placeholder-[#8A8270] focus:border-[#FFC629] focus:bg-white focus:outline-none transition-all"
+              />
+            </div>
+
+            <div class="shrink-0">
+              <select
+                (change)="statusFilter.set($any($event.target).value)"
+                class="rounded-full border border-[#EFE6CC] bg-[#FBF7ED]/50 px-4 py-2 text-sm text-[#221D0F] focus:border-[#FFC629] focus:bg-white focus:outline-none transition-all"
+              >
+                <option value="all">Tất cả trạng thái</option>
+                <option value="active">Đang hoạt động</option>
+                <option value="inactive">Đã khóa</option>
+              </select>
+            </div>
+          </div>
+
           <!-- Content -->
           @if (users.isLoading()) {
             <div class="flex items-center justify-center py-10">
@@ -82,7 +112,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
             </div>
           } @else {
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              @for (u of users.value()?.data ?? []; track u.id) {
+              @for (u of filteredUsers(); track u.id) {
                 <a
                   #card
                   [routerLink]="['/tenants', u.id]"
@@ -100,12 +130,11 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                       <h3 class="text-base font-bold text-[#221D0F] truncate" [title]="u.full_name">{{ u.full_name }}</h3>
                       <p class="text-sm text-[#8A8270] mt-0.5 mb-2.5 truncate">{{ u.phone }}</p>
                       
-                      <!-- SỬ DỤNG u.room.code THAY VÌ u.room_id -->
                       @if (u.room_id) {
                         <div class="flex items-center gap-1.5">
                           <span class="text-xs text-[#8A8270] shrink-0">Phòng:</span>
                           <span 
-                            class="inline-block max-w-[160px] truncate rounded-md bg-[#FFC629] px-2 py-0.5 text-xs font-bold text-[#221D0F] shadow-sm"
+                            class="inline-block max-w-40 truncate rounded-md bg-[#FFC629] px-2 py-0.5 text-xs font-bold text-[#221D0F] shadow-sm"
                             [title]="u.room?.code || u.room_id"
                           >
                             {{ u.room?.code || u.room_id }}
@@ -131,7 +160,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 </a>
               } @empty {
                 <div class="col-span-full rounded-3xl border border-[#EFE6CC] bg-white p-10 text-center shadow-sm">
-                  <p class="text-[#8A8270]">Chưa có người thuê nào trong hệ thống.</p>
+                  <p class="text-[#8A8270]">Không tìm thấy người thuê nào phù hợp với bộ lọc.</p>
                 </div>
               }
             </div>
@@ -146,9 +175,35 @@ export class TenantListPage {
   private usersService = inject(UsersService);
   users = this.usersService.usersResource;
 
+  // --- STATE TÌM KIẾM VÀ LỌC ---
+  searchQuery = signal('');
+  statusFilter = signal('all');
+
+  // Computed tự động tính toán lại danh sách khi search/filter hoặc data thay đổi
+  filteredUsers = computed(() => {
+    const list = this.users.value()?.data ?? [];
+    const search = this.searchQuery().toLowerCase().trim();
+    const status = this.statusFilter();
+
+    return list.filter((u) => {
+      // 1. Kiểm tra tìm kiếm (Tên hoặc SĐT)
+      const matchesSearch = !search || 
+                            u.full_name.toLowerCase().includes(search) || 
+                            u.phone.includes(search);
+      
+      // 2. Kiểm tra bộ lọc trạng thái
+      let matchesStatus = true;
+      if (status === 'active') matchesStatus = u.is_active === true;
+      if (status === 'inactive') matchesStatus = u.is_active === false;
+
+      return matchesSearch && matchesStatus;
+    });
+  });
+
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');
   private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
   private hero = viewChild<ElementRef<HTMLElement>>('hero');
+  private filterBar = viewChild<ElementRef<HTMLElement>>('filterBar');
   private cards = viewChildren<ElementRef<HTMLElement>>('card');
   private animatedCards = false;
 
@@ -157,22 +212,26 @@ export class TenantListPage {
       const blob1El = this.blob1()?.nativeElement;
       const blob2El = this.blob2()?.nativeElement;
       const heroEl = this.hero()?.nativeElement;
+      const filterEl = this.filterBar()?.nativeElement;
+      
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
-      if (blob1El && blob2El) {
-        tl.fromTo([blob1El, blob2El], { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.6 });
-      }
+      if (blob1El && blob2El) tl.fromTo([blob1El, blob2El], { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.6 });
       if (heroEl) tl.fromTo(heroEl, { y: -12, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35 }, '-=0.45');
+      if (filterEl) tl.fromTo(filterEl, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3 }, '-=0.2');
+      
       if (blob1El) gsap.to(blob1El, { x: 20, y: 15, duration: 6, ease: 'sine.inOut', repeat: -1, yoyo: true });
       if (blob2El) gsap.to(blob2El, { x: -15, y: -20, duration: 7, ease: 'sine.inOut', repeat: -1, yoyo: true });
     });
 
+    // Khi data mới load hoặc filter thay đổi thì re-animate các thẻ
     effect(() => {
       const cardEls = this.cards().map(c => c.nativeElement).filter(el => !!el);
-      if (cardEls.length > 0 && !this.animatedCards) {
-        this.animatedCards = true;
+      if (cardEls.length > 0) {
+        // Hủy cờ để animation luôn chạy khi kết quả search thay đổi
+        this.animatedCards = false; 
         setTimeout(() => {
-          gsap.fromTo(cardEls, { y: 16, opacity: 0, scale: 0.97 }, { y: 0, opacity: 1, scale: 1, duration: 0.35, stagger: 0.07, ease: 'power3.out' });
+          gsap.fromTo(cardEls, { y: 16, opacity: 0, scale: 0.97 }, { y: 0, opacity: 1, scale: 1, duration: 0.35, stagger: 0.05, ease: 'power3.out' });
         }, 50);
       }
     });
