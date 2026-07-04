@@ -5,6 +5,7 @@ import {
   input,
   resource,
   signal,
+  computed,
   ElementRef,
   viewChild,
   afterNextRender,
@@ -13,9 +14,10 @@ import {
 import { RouterLink } from '@angular/router';
 import gsap from 'gsap';
 
-import { UiInput } from '../../../shared/ui/input/input';
 import { UiBadge } from '../../../shared/ui/badge/badge';
 import { UsersService } from '../../../core/services/users.service';
+import { RoomsService } from '../../../core/services/rooms.service';
+import { Room } from '../../../core/models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
@@ -23,7 +25,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 @Component({
   selector: 'app-tenant-detail',
   standalone: true,
-  imports: [RouterLink, UiInput, UiBadge, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, UiBadge, TenantSidebar, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
@@ -84,7 +86,17 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 </div>
                 <div class="flex flex-col gap-1.5">
                   <span class="text-sm text-[#8A8270]">Phòng hiện tại đang ở</span>
-                  <span class="font-bold text-[#221D0F]">{{ t.room_id || 'Chưa gán phòng' }}</span>
+                  <span class="font-bold text-[#221D0F]">
+                    @if (!t.room_id) {
+                      Chưa gán phòng
+                    } @else if (rooms.isLoading()) {
+                      Đang tải...
+                    } @else if (currentRoom(); as r) {
+                      {{ r.name }}
+                    } @else {
+                      {{ t.room_id }}
+                    }
+                  </span>
                 </div>
               </div>
 
@@ -94,10 +106,28 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 
                 @if (!t.room_id) {
                   <div class="flex flex-col sm:flex-row items-end gap-3">
-                    <div class="w-full sm:flex-1">
-                      <ui-input label="Gán vào phòng (nhập ID/Mã phòng)" [(value)]="roomIdInput" />
+                    <div class="w-full sm:flex-1 flex flex-col gap-1.5">
+                      <label class="text-sm text-[#8A8270]">Chọn phòng còn trống</label>
+                      <select
+                        [value]="roomIdInput()"
+                        (change)="onRoomSelect($event)"
+                        [disabled]="rooms.isLoading()"
+                        class="w-full rounded-xl border border-[#D8D2C2] bg-white px-4 py-2.5 text-sm text-[#221D0F] focus:outline-none focus:ring-2 focus:ring-[#FFC629] disabled:opacity-60"
+                      >
+                        <option value="" disabled selected>
+                          {{ rooms.isLoading() ? 'Đang tải danh sách phòng...' : '-- Chọn phòng --' }}
+                        </option>
+                        @for (r of availableRooms(); track r.id) {
+                          <option [value]="r.id">
+                            {{ r.name }} (Còn {{ r.capacity - r.occupants }}/{{ r.capacity }} chỗ)
+                          </option>
+                        }
+                        @if (!rooms.isLoading() && availableRooms().length === 0) {
+                          <option disabled>Không còn phòng trống</option>
+                        }
+                      </select>
                     </div>
-                    <button (click)="assignRoom()" [disabled]="assigning()" class="w-full sm:w-auto flex justify-center items-center rounded-xl bg-[#221D0F] px-6 py-2.5 text-sm font-semibold text-[#FFC629] transition hover:bg-black disabled:opacity-70">
+                    <button (click)="assignRoom()" [disabled]="assigning() || !roomIdInput()" class="w-full sm:w-auto flex justify-center items-center rounded-xl bg-[#221D0F] px-6 py-2.5 text-sm font-semibold text-[#FFC629] transition hover:bg-black disabled:opacity-70">
                       {{ assigning() ? 'Đang gán...' : 'Gán phòng' }}
                     </button>
                   </div>
@@ -147,10 +177,28 @@ export class TenantDetailPage {
 
   auth = inject(AuthService);
   private usersService = inject(UsersService);
+  private roomsService = inject(RoomsService);
 
   tenant = resource({
     params: () => ({ id: this.id() }),
     loader: ({ params }) => this.usersService.getById(params.id),
+  });
+
+  // RoomsService đã tự expose httpResource() sẵn, dùng lại luôn thay vì tạo resource riêng
+  rooms = this.roomsService.roomsResource;
+
+  private roomsList = computed<Room[]>(() => this.rooms.value()?.data ?? []);
+
+  // Danh sách phòng còn slot trống (dùng cho dropdown gán phòng)
+  availableRooms = computed(() =>
+    this.roomsList().filter((r) => r.occupants < r.capacity)
+  );
+
+  // Phòng hiện tại của tenant (tra theo room_id trong danh sách đã tải)
+  currentRoom = computed(() => {
+    const roomId = this.tenant.value()?.room_id;
+    if (!roomId) return null;
+    return this.roomsList().find((r) => r.id === roomId) ?? null;
   });
 
   roomIdInput = signal('');
@@ -190,6 +238,11 @@ export class TenantDetailPage {
     });
   }
 
+  onRoomSelect(event: Event) {
+    const value = (event.target as HTMLSelectElement).value;
+    this.roomIdInput.set(value);
+  }
+
   async assignRoom() {
     if (!this.roomIdInput()) return;
     this.errorMessage.set('');
@@ -197,6 +250,7 @@ export class TenantDetailPage {
     try {
       await this.usersService.assignRoom(this.id(), this.roomIdInput());
       this.tenant.reload();
+      this.rooms.reload();
       this.roomIdInput.set('');
     } catch (err: any) {
       this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Gán phòng thất bại.');
@@ -211,6 +265,7 @@ export class TenantDetailPage {
     try {
       await this.usersService.unassignRoom(this.id());
       this.tenant.reload();
+      this.rooms.reload();
     } catch (err: any) {
       this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Trả phòng thất bại.');
     } finally {
