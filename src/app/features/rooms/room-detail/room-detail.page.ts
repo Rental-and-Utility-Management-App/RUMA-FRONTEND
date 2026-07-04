@@ -74,7 +74,7 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
             </div>
           } @else if (room.error()) {
             <div class="rounded-3xl border border-[#F4D9D2] bg-white p-6 text-center shadow-sm">
-              <p class="text-sm font-medium text-[#9A3412]">Không tải được thông tin phòng. Vui lòng thử lại.</p>
+              <p class="text-sm font-medium text-[#9A3412]">Không tải được thông tin phòng.</p>
             </div>
           } @else if (room.value(); as r) {
             
@@ -100,7 +100,7 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
               <div class="relative grid grid-cols-2 md:grid-cols-3 gap-6 mb-8">
                 <div class="flex flex-col gap-1.5">
                   <span class="text-sm text-[#8A8270]">Sức chứa</span>
-                  <span class="font-bold text-[#221D0F]">{{ r.occupants }}{{ r.capacity }} người</span>
+                  <span class="font-bold text-[#221D0F]">{{ r.occupants || 0 }} / {{ r.capacity || 0 }} người</span>
                 </div>
                 <div class="flex flex-col gap-1.5">
                   <span class="text-sm text-[#8A8270]">Giá thuê</span>
@@ -131,13 +131,13 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
                 <div class="relative mt-6 mb-8 pt-6 border-t border-[#F1EBD8]">
                   <h3 class="text-sm font-bold text-[#221D0F] mb-4">Người đang ở ({{ r.tenants.length }})</h3>
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    @for (tenant of r.tenants; track tenant.id) {
+                    @for (tenant of r.tenants || []; track tenant.id) {
                       <a 
                         [routerLink]="['/tenants', tenant.id]"
                         class="group flex items-center gap-3 rounded-xl bg-[#FBF7ED] p-3 border border-[#EFE6CC] transition-all hover:bg-white hover:border-[#FFC629] hover:shadow-sm"
                       >
                         <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#8A6200] shadow-sm border border-[#EFE6CC] group-hover:bg-[#FFC629] group-hover:text-[#221D0F] transition-colors">
-                          {{ tenant.full_name.charAt(0).toUpperCase() }}
+                          {{ tenant.full_name?.charAt(0)?.toUpperCase() || 'T' }}
                         </div>
                         <div class="min-w-0 flex-1">
                           <p class="text-sm font-bold text-[#221D0F] truncate" [title]="tenant.full_name">{{ tenant.full_name }}</p>
@@ -185,7 +185,7 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
             <p class="text-sm text-[#8A8270] animate-pulse">Đang tải dữ liệu hợp đồng...</p>
           } @else {
             <div class="space-y-3">
-              @for (c of activeContracts(); track c.id) {
+              @for (c of activeContracts() || []; track c.id) {
                 <a
                   #contractCard
                   [routerLink]="['/contracts', c.id]"
@@ -239,8 +239,11 @@ export class RoomDetailPage {
 
   contracts = this.contractsService.contractsByRoom(() => this.id());
 
+  // Rào chắn kiểu 'any' phòng trường hợp Backend trả về kiểu dữ liệu mảng bị sai lệch 
   activeContracts() {
-    return (this.contracts.value()?.data ?? []).filter((c) => c.status === 'active');
+    const list = this.contracts.value()?.data || this.contracts.value() || [];
+    if (!Array.isArray(list)) return [];
+    return list.filter((c: any) => c.status === 'active');
   }
 
   ROOM_STATUS_COLOR = ROOM_STATUS_COLOR;

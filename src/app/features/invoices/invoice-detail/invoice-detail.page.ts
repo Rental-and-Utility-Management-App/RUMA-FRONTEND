@@ -33,7 +33,6 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
-      <!-- Sidebar theo vai trò -->
       @if (auth.isManager()) {
         <app-manager-sidebar />
       } @else {
@@ -51,7 +50,6 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
       <div class="relative md:pl-64">
         <div class="max-w-4xl mx-auto p-6 md:p-10">
           
-          <!-- Header -->
           <div #hero class="mb-8 opacity-0">
             <a routerLink="/invoices" class="inline-flex items-center gap-2 text-sm font-medium text-[#8A8270] hover:text-[#B8860B] transition-colors mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -62,10 +60,13 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
             <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-[#221D0F]">Chi tiết hóa đơn</h1>
           </div>
 
-          <!-- Main Content -->
           @if (invoice.isLoading()) {
             <div class="flex justify-center py-10">
               <p class="text-sm text-[#8A8270] animate-pulse">Đang tải thông tin hóa đơn...</p>
+            </div>
+          } @else if (invoice.error()) {
+            <div class="rounded-3xl border border-[#F4D9D2] bg-white p-6 text-center shadow-sm">
+              <p class="text-sm font-medium text-[#9A3412]">Không tải được hóa đơn.</p>
             </div>
           } @else if (invoice.value(); as inv) {
             <div #mainCard class="relative overflow-hidden rounded-3xl border border-[#EFE6CC] bg-white p-6 md:p-8 shadow-[0_2px_14px_rgba(34,29,15,0.05)] mb-8 opacity-0">
@@ -88,15 +89,12 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 </ui-badge>
               </div>
 
-              <!-- Chi tiết các khoản phí -->
               <div class="relative mb-6 rounded-2xl bg-[#FBF7ED] border border-[#F1EBD8] overflow-hidden">
                 <div class="grid grid-cols-1 divide-y divide-[#F1EBD8]">
-                  
                   <div class="flex justify-between p-4 items-center">
                     <span class="text-sm font-medium text-[#6B6455]">Tiền thuê phòng</span>
                     <span class="font-bold text-[#221D0F]">{{ inv.rent_amount | number }} ₫</span>
                   </div>
-                  
                   <div class="flex justify-between p-4 items-center">
                     <div>
                       <span class="text-sm font-medium text-[#6B6455] block">Tiền điện</span>
@@ -104,7 +102,6 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                     </div>
                     <span class="font-bold text-[#221D0F]">{{ inv.electric_amount | number }} ₫</span>
                   </div>
-
                   <div class="flex justify-between p-4 items-center">
                     <div>
                       <span class="text-sm font-medium text-[#6B6455] block">Tiền nước</span>
@@ -112,12 +109,10 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                     </div>
                     <span class="font-bold text-[#221D0F]">{{ inv.water_amount | number }} ₫</span>
                   </div>
-
                   <div class="flex justify-between p-4 items-center">
                     <span class="text-sm font-medium text-[#6B6455]">Phí quản lý & Dịch vụ</span>
                     <span class="font-bold text-[#221D0F]">{{ inv.management_fee_amount | number }} ₫</span>
                   </div>
-
                   @if (inv.other_fees) {
                     <div class="flex justify-between p-4 items-center bg-white/50">
                       <span class="text-sm font-medium text-[#6B6455]">{{ inv.other_note || 'Phụ phí khác' }}</span>
@@ -127,25 +122,21 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 </div>
               </div>
 
-              <!-- TỔNG CỘNG -->
               <div class="relative pt-4 flex flex-col gap-3">
                 <div class="flex justify-between items-center text-lg">
                   <span class="font-bold text-[#221D0F]">TỔNG CỘNG</span>
                   <span class="font-black text-2xl text-[#221D0F]">{{ inv.total_amount | number }} ₫</span>
                 </div>
-                
                 <div class="flex justify-between items-center text-sm border-t border-dashed border-[#EFE6CC] pt-3">
                   <span class="font-medium text-[#8A8270]">Đã thanh toán</span>
                   <span class="font-bold text-green-600">{{ inv.paid_amount | number }} ₫</span>
                 </div>
-                
                 <div class="flex justify-between items-center text-sm border-t border-dashed border-[#EFE6CC] pt-3">
                   <span class="font-bold text-[#221D0F]">SỐ TIỀN CÒN LẠI</span>
-                  <span class="font-bold text-[#9A3412] text-lg">{{ (inv.total_amount - inv.paid_amount) | number }} ₫</span>
+                  <span class="font-bold text-[#9A3412] text-lg">{{ ((inv.total_amount || 0) - (inv.paid_amount || 0)) | number }} ₫</span>
                 </div>
               </div>
 
-              <!-- Nút hành động -->
               <div class="relative flex flex-wrap gap-3 mt-8 pt-6 border-t border-[#F1EBD8]">
                 <button (click)="loadQr()" class="flex items-center gap-2 rounded-full bg-[#F1EBD8] px-6 py-2.5 text-sm font-semibold text-[#221D0F] transition hover:bg-[#E9E4D6] disabled:opacity-60" [disabled]="loadingQr()">
                   @if (loadingQr()) {
@@ -157,7 +148,6 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                     Quét mã thanh toán (VietQR)
                   }
                 </button>
-                
                 @if (auth.isManager() && inv.status !== 'paid' && inv.status !== 'cancelled') {
                   <button (click)="openPaymentModal()" class="flex items-center gap-2 rounded-full bg-[#FFC629] px-6 py-2.5 text-sm font-bold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764]">
                     Ghi nhận thanh toán tay
@@ -165,11 +155,10 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 }
               </div>
 
-              <!-- Hiển thị QR Code -->
               @if (qrCodeUrl()) {
                 <div class="mt-6 p-6 rounded-2xl bg-[#FBF7ED] border border-[#EFE6CC] flex flex-col items-center justify-center text-center">
                   <p class="text-sm font-bold text-[#221D0F] mb-3">Mã QR Thanh Toán Tự Động</p>
-                  <img [src]="qrCodeUrl()" alt="VietQR" class="rounded-xl border-4 border-white shadow-sm max-w-50" />
+                  <img [src]="qrCodeUrl()" alt="VietQR" class="rounded-xl border-4 border-white shadow-sm max-w-48" />
                   <p class="text-xs text-[#8A8270] mt-3">Sử dụng App Ngân hàng bất kỳ để quét mã.<br/>Hệ thống sẽ tự động đối soát ngay lập tức.</p>
                 </div>
               }
@@ -182,7 +171,6 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
             </div>
           }
 
-          <!-- Lịch sử Thanh Toán -->
           <div #txHeader class="mb-4 opacity-0">
             <h3 class="text-lg font-bold text-[#221D0F]">Lịch sử nộp tiền</h3>
             <p class="text-sm text-[#8A8270]">Chi tiết các lần thanh toán cho hóa đơn này</p>
@@ -201,7 +189,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                       </svg>
                     </div>
                     <div>
-                      <span class="text-[#221D0F] font-bold block">{{ PAYMENT_METHOD_LABEL[p.method] }}</span>
+                      <span class="text-[#221D0F] font-bold block">{{ PAYMENT_METHOD_LABEL[p.method] || 'Tiền mặt' }}</span>
                       @if (p.is_auto_confirmed) {
                         <span class="text-xs text-blue-600 font-medium mt-0.5">Xác nhận tự động qua ngân hàng</span>
                       } @else {
@@ -222,15 +210,12 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
       </div>
     </div>
 
-    <!-- MODAL Ghi nhận thanh toán -->
     <ui-modal [open]="paymentModalOpen()" title="Xác nhận khách nộp tiền" (closeRequested)="paymentModalOpen.set(false)">
       <div class="flex flex-col gap-4">
         <ui-input label="Nhập số tiền khách đã nộp (₫)" type="number" [(value)]="paymentAmount" />
-        
         @if (errorMessage()) {
           <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
         }
-        
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="paymentModalOpen.set(false)" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy bỏ</button>
           <button type="button" (click)="onRecordPayment()" [disabled]="submittingPayment()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
@@ -264,7 +249,7 @@ export class InvoiceDetailPage {
 
   INVOICE_STATUS_COLOR = INVOICE_STATUS_COLOR;
   INVOICE_STATUS_LABEL = INVOICE_STATUS_LABEL;
-  PAYMENT_METHOD_LABEL = PAYMENT_METHOD_LABEL;
+  PAYMENT_METHOD_LABEL: any = PAYMENT_METHOD_LABEL;
 
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');
   private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
@@ -335,7 +320,7 @@ export class InvoiceDetailPage {
   openPaymentModal() {
     this.errorMessage.set('');
     const inv = this.invoice.value();
-    if (inv) this.paymentAmount.set(String(inv.total_amount - inv.paid_amount));
+    if (inv) this.paymentAmount.set(String((inv.total_amount || 0) - (inv.paid_amount || 0)));
     this.paymentModalOpen.set(true);
   }
 

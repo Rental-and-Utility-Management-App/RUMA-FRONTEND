@@ -11,18 +11,21 @@ import {
   effect,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, DatePipe } from '@angular/common';
 import gsap from 'gsap';
 import { AuthService } from '../../core/auth/auth.service';
 import { RoomsService } from '../../core/services/rooms.service';
 import { InvoicesService } from '../../core/services/invoices.service';
+import { ContractsService } from '../../core/services/contracts.service';
+
+import { Invoice, Contract } from '../../core/models';
 import { TenantSidebar } from '../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../components/sidebars/manager-sidebar';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [RouterLink, DecimalPipe, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, DecimalPipe, DatePipe, TenantSidebar, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
@@ -197,17 +200,19 @@ import { ManagerSidebar } from '../components/sidebars/manager-sidebar';
               <div class="flex items-center justify-between mb-6">
                 <div>
                   <p class="text-sm text-[#8A8270]">Doanh thu 6 tháng gần nhất</p>
-                  <p class="text-xl font-bold text-[#221D0F]">{{ revenueChart[revenueChart.length - 1].value }} triệu ₫</p>
+                  <p class="text-xl font-bold text-[#221D0F]">
+                    {{ revenueChart()[revenueChart().length - 1].value }} triệu ₫
+                  </p>
                 </div>
-                <span class="rounded-full bg-[#FFF6DC] px-3 py-1 text-xs font-semibold text-[#8A6200]">Dữ liệu minh họa</span>
+                <span class="rounded-full bg-[#FFF6DC] px-3 py-1 text-xs font-semibold text-[#8A6200]">Đã thu thực tế</span>
               </div>
               <div class="flex items-end justify-between gap-3 h-40">
-                @for (item of revenueChart; track item.label) {
+                @for (item of revenueChart(); track item.label) {
                   <div class="flex flex-1 flex-col items-center gap-2">
                     <div class="relative flex h-32 w-full items-end justify-center overflow-hidden rounded-xl bg-[#FBF7ED]">
                       <div
                         class="w-8 rounded-t-lg bg-linear-to-t from-[#FFC629] to-[#FFE29A] transition-[height] duration-700 ease-out"
-                        [style.height.%]="chartsAnimated() ? (item.value / maxRevenue) * 100 : 0"
+                        [style.height.%]="chartsAnimated() ? (item.value / maxRevenue()) * 100 : 0"
                       ></div>
                     </div>
                     <span class="text-xs font-medium text-[#8A8270]">{{ item.label }}</span>
@@ -259,30 +264,32 @@ import { ManagerSidebar } from '../components/sidebars/manager-sidebar';
             <div class="flex items-center justify-between mb-4">
               <div>
                 <p class="text-base font-semibold text-[#221D0F]">Phòng sắp đến hạn đóng tiền</p>
-                <p class="text-sm text-[#8A8270]">Dữ liệu minh họa — sẽ nối API hóa đơn sau</p>
+                <p class="text-sm text-[#8A8270]">Dựa trên hóa đơn chưa thanh toán / thanh toán một phần</p>
               </div>
               <a routerLink="/invoices" class="text-sm font-semibold text-[#8A6200] hover:underline">Xem tất cả</a>
             </div>
 
             <div class="divide-y divide-[#F1EBD8]">
-              @for (item of upcomingDuePayments; track item.room) {
+              @for (item of upcomingDuePayments(); track item.invoiceId) {
                 <div class="flex items-center justify-between gap-4 py-3">
                   <div class="flex items-center gap-3">
                     <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-[#FBF7ED] text-sm font-semibold text-[#8A6200]">
-                      {{ item.room.slice(1) }}
+                      {{ item.roomCode }}
                     </div>
                     <div>
-                      <p class="text-sm font-semibold text-[#221D0F]">{{ item.room }} · {{ item.tenant }}</p>
-                      <p class="text-xs text-[#8A8270]">Hạn: {{ item.dueDate }}</p>
+                      <p class="text-sm font-semibold text-[#221D0F]">Phòng {{ item.roomCode }} · {{ item.tenantName }}</p>
+                      <p class="text-xs text-[#8A8270]">Hạn: {{ item.dueDate | date: 'dd/MM/yyyy' }}</p>
                     </div>
                   </div>
                   <div class="flex items-center gap-3">
-                    <span class="text-sm font-semibold text-[#221D0F]">{{ item.amount | number: '1.0-0' }} ₫</span>
+                    <span class="text-sm font-semibold text-[#221D0F]">{{ item.remainingAmount | number: '1.0-0' }} ₫</span>
                     <span class="rounded-full px-3 py-1 text-xs font-semibold" [class]="dueStatusClass(item.daysLeft)">
                       {{ dueStatusLabel(item.daysLeft) }}
                     </span>
                   </div>
                 </div>
+              } @empty {
+                <p class="py-6 text-center text-sm text-[#8A8270]">Không có hóa đơn nào sắp đến hạn hoặc quá hạn 🎉</p>
               }
             </div>
           </div>
@@ -295,15 +302,24 @@ export class DashboardPage {
   auth = inject(AuthService);
   private roomsService = inject(RoomsService);
   private invoicesService = inject(InvoicesService);
+  private contractsService = inject(ContractsService);
 
   rooms = this.roomsService.roomsResource;
-  invoices = this.invoicesService.list(() => ({ status: 'unpaid' }));
+
+  // Lấy TẤT CẢ hóa đơn (không filter status) để tự tính thống kê + doanh thu + phòng sắp đến hạn
+  invoicesAll = this.invoicesService.list(() => ({}));
+
+  // Giả định ContractsService có property `contractsResource` (httpResource, không cần params),
+  // cùng pattern với RoomsService.roomsResource. Đổi lại nếu thực tế khác.
+  contracts = this.contractsService.contractsResource;
 
   totalRoomsCount = computed(() => this.rooms.value()?.data?.length ?? 0);
   availableRoomsCount = computed(
     () => (this.rooms.value()?.data ?? []).filter((r: { status: string }) => r.status === 'available').length
   );
-  unpaidInvoicesCount = computed(() => this.invoices.value()?.data?.length ?? 0);
+  unpaidInvoicesCount = computed(
+    () => (this.invoicesAll.value()?.data ?? []).filter((inv: Invoice) => inv.status === 'unpaid').length
+  );
 
   today = computed(() =>
     new Date().toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })
@@ -323,30 +339,67 @@ export class DashboardPage {
   // Cờ kích hoạt animation cho biểu đồ (bar + donut) sau khi vào trang
   chartsAnimated = signal(false);
 
-  // --- MOCK DATA: doanh thu 6 tháng gần nhất (triệu VNĐ) ---
-  readonly revenueChart: { label: string; value: number }[] = [
-    { label: 'T2', value: 42 },
-    { label: 'T3', value: 38 },
-    { label: 'T4', value: 51 },
-    { label: 'T5', value: 47 },
-    { label: 'T6', value: 60 },
-    { label: 'T7', value: 55 },
-  ];
-  readonly maxRevenue = Math.max(...this.revenueChart.map((r) => r.value));
+  // Map room_id -> mã phòng (code), dùng để hiển thị ở danh sách sắp đến hạn
+  private roomCodeMap = computed(() => {
+    const map = new Map<string, string>();
+    for (const r of this.rooms.value()?.data ?? []) {
+      map.set(r.id, r.code);
+    }
+    return map;
+  });
 
-  // --- MOCK DATA: phòng sắp đến hạn / quá hạn đóng tiền ---
-  readonly upcomingDuePayments: {
-    room: string;
-    tenant: string;
-    dueDate: string;
-    amount: number;
-    daysLeft: number;
-  }[] = [
-    { room: 'P.309', tenant: 'Lê Văn C', dueDate: '01/07/2026', amount: 4200000, daysLeft: -2 },
-    { room: 'P.101', tenant: 'Nguyễn Văn A', dueDate: '05/07/2026', amount: 3500000, daysLeft: 2 },
-    { room: 'P.204', tenant: 'Trần Thị B', dueDate: '07/07/2026', amount: 2800000, daysLeft: 4 },
-    { room: 'P.112', tenant: 'Phạm Thị D', dueDate: '10/07/2026', amount: 3000000, daysLeft: 7 },
-  ];
+  // Map room_id -> tên người thuê hiện tại (từ hợp đồng active), dùng cho danh sách sắp đến hạn
+  private roomTenantNameMap = computed(() => {
+    const map = new Map<string, string>();
+    for (const c of (this.contracts.value()?.data ?? []) as Contract[]) {
+      if (c.status !== 'active') continue;
+      const names = (c.tenants ?? []).map((t) => t.full_name).join(', ');
+      map.set(c.room_id, names);
+    }
+    return map;
+  });
+
+  // --- Doanh thu 6 tháng gần nhất (triệu VNĐ), tính từ paid_amount thật của hóa đơn ---
+  revenueChart = computed(() => {
+    const all = (this.invoicesAll.value()?.data ?? []) as Invoice[];
+    const now = new Date();
+    const months: { year: number; month: number; label: string }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ year: d.getFullYear(), month: d.getMonth() + 1, label: `T${d.getMonth() + 1}` });
+    }
+    return months.map(({ year, month, label }) => {
+      const total = all
+        .filter((inv) => inv.year === year && inv.month === month)
+        .reduce((sum, inv) => sum + (inv.paid_amount ?? 0), 0);
+      return { label, value: Math.round(total / 1_000_000) };
+    });
+  });
+  maxRevenue = computed(() => Math.max(...this.revenueChart().map((r) => r.value), 1));
+
+  // --- Phòng sắp đến hạn / quá hạn đóng tiền, tính từ hóa đơn unpaid + partial thật ---
+  upcomingDuePayments = computed(() => {
+    const all = (this.invoicesAll.value()?.data ?? []) as Invoice[];
+    const roomCodes = this.roomCodeMap();
+    const tenantNames = this.roomTenantNameMap();
+    const now = Date.now();
+
+    return all
+      .filter((inv) => inv.status === 'unpaid' || inv.status === 'partial')
+      .map((inv) => {
+        const daysLeft = Math.ceil((new Date(inv.due_date).getTime() - now) / (1000 * 60 * 60 * 24));
+        return {
+          invoiceId: inv.id,
+          roomCode: roomCodes.get(inv.room_id) ?? inv.room_id,
+          tenantName: tenantNames.get(inv.room_id) || '—',
+          dueDate: inv.due_date,
+          remainingAmount: inv.total_amount - inv.paid_amount,
+          daysLeft,
+        };
+      })
+      .sort((a, b) => a.daysLeft - b.daysLeft)
+      .slice(0, 5);
+  });
 
   dueStatusLabel(daysLeft: number): string {
     if (daysLeft < 0) return `Quá hạn ${Math.abs(daysLeft)} ngày`;
@@ -444,7 +497,7 @@ export class DashboardPage {
       const unpaid = this.unpaidInvoicesCount();
 
       if (this.countersAnimated) return;
-      if (this.rooms.value() === undefined || this.invoices.value() === undefined) return;
+      if (this.rooms.value() === undefined || this.invoicesAll.value() === undefined) return;
 
       this.countersAnimated = true;
       this.animateCount(this.totalCountEl()?.nativeElement, total);

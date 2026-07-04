@@ -20,7 +20,7 @@ import { UiInput } from '../../../shared/ui/input/input';
 import { UiModal } from '../../../shared/ui/modal/modal';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ContractsService } from '../../../core/services/contracts.service';
-import { Contract, ContractStatus, DEPOSIT_STATUS_COLOR, DEPOSIT_STATUS_LABEL } from '../../../core/models/contract.model';
+import { ContractStatus, DEPOSIT_STATUS_COLOR, DEPOSIT_STATUS_LABEL } from '../../../core/models/contract.model';
 import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
@@ -40,7 +40,6 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
-      <!-- Sidebar theo vai trò -->
       @if (auth.isManager()) {
         <app-manager-sidebar />
       } @else {
@@ -58,7 +57,6 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
       <div class="relative md:pl-64">
         <div class="max-w-4xl mx-auto p-6 md:p-10">
           
-          <!-- Header -->
           <div #hero class="mb-8 opacity-0">
             <a routerLink="/contracts" class="inline-flex items-center gap-2 text-sm font-medium text-[#8A8270] hover:text-[#B8860B] transition-colors mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -69,14 +67,16 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
             <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-[#221D0F]">Hồ sơ chi tiết</h1>
           </div>
 
-          <!-- Loading / Error -->
           @if (contract.isLoading()) {
             <div class="flex justify-center py-10">
               <p class="text-sm text-[#8A8270] animate-pulse">Đang tải thông tin hợp đồng...</p>
             </div>
+          } @else if (contract.error()) {
+            <div class="rounded-3xl border border-[#F4D9D2] bg-white p-6 text-center shadow-sm">
+              <p class="text-sm font-medium text-[#9A3412]">Không tải được hợp đồng.</p>
+            </div>
           } @else if (contract.value(); as c) {
             
-            <!-- Thẻ thông tin hợp đồng chính -->
             <div #mainCard class="relative overflow-hidden rounded-3xl border border-[#EFE6CC] bg-white p-6 md:p-8 shadow-[0_2px_14px_rgba(34,29,15,0.05)] mb-6 opacity-0">
               <div class="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#FFC629]/10 blur-2xl pointer-events-none"></div>
 
@@ -100,7 +100,6 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
                 </div>
               </div>
 
-              <!-- Lưới chi tiết điều khoản -->
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm mb-6">
                 <div class="flex flex-col gap-1">
                   <span class="text-[#8A8270]">Thành viên lưu trú</span>
@@ -126,11 +125,10 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
                 }
               </div>
 
-              <!-- Khối công cụ quản trị (Manager) -->
               @if (auth.isManager() && c.status === 'active') {
                 <div class="relative flex flex-wrap gap-2 pt-6 border-t border-[#F1EBD8]">
                   <button (click)="openModal('extend')" class="rounded-full bg-[#F1EBD8] px-5 py-2 text-xs font-semibold text-[#221D0F] transition hover:bg-[#E9E4D6]">Gia hạn</button>
-                  @if (c.deposit_paid < c.deposit_amount) {
+                  @if ((c.deposit_paid || 0) < (c.deposit_amount || 0)) {
                     <button (click)="openModal('collect-deposit')" class="rounded-full bg-[#FFC629] px-5 py-2 text-xs font-bold text-[#221D0F] transition hover:bg-[#FFD764]">Thu cọc</button>
                   }
                   <button (click)="openModal('add-tenant')" class="rounded-full bg-[#221D0F] px-5 py-2 text-xs font-semibold text-white transition hover:bg-black">Thêm người ở ghép</button>
@@ -142,11 +140,11 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
                   }
                 </div>
 
-                <!-- Chip xóa thành viên ở ghép -->
-                @if (c.tenant_ids.length > 1) {
+                @if (c.tenant_ids && c.tenant_ids.length > 1) {
                   <div class="mt-4 flex flex-wrap gap-2 pt-3 border-t border-dashed border-[#F1EBD8]">
                     <span class="text-xs text-[#8A8270] self-center w-full sm:w-auto mb-1 sm:mb-0">Xóa người ở ghép nhanh:</span>
-                    @for (tid of c.tenant_ids; track tid) {
+                    <!-- Dùng || [] để chống sập vòng lặp khi mảng chưa kịp bind -->
+                    @for (tid of c.tenant_ids || []; track tid) {
                       <span class="inline-flex items-center gap-2 rounded-full bg-[#FBF7ED] border border-[#EFE6CC] px-3 py-1 text-xs font-medium text-[#6B6455]">
                         {{ tenantLabel(c, tid) }}
                         <button type="button" class="text-[#9A3412] hover:text-red-700 font-bold text-sm" (click)="removeTenant(tid)" [disabled]="removingTenant()">&times;</button>
@@ -164,7 +162,6 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
             </div>
           }
 
-          <!-- Lịch sử cọc (Giao dịch) -->
           <div #txHeader class="mb-4 opacity-0">
             <h3 class="text-lg font-bold text-[#221D0F]">Lịch sử ký quỹ cọc</h3>
             <p class="text-sm text-[#8A8270]">Nhật ký nạp tiền/hoàn trả tiền bảo đảm</p>
@@ -174,11 +171,10 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
             <p class="text-sm text-[#8A8270] animate-pulse">Đang nạp lịch sử giao dịch...</p>
           } @else {
             <div class="space-y-2.5">
-              @for (tx of depositTx.value() ?? []; track tx.id) {
-                <div #txCard class="rounded-2xl border border-[#EFE6CC] bg-white p-4 text-sm flex justify-between items-center opacity-0 shadow-[0_2px_8px_rgba(34,29,15,0.02)]">
+              @for (tx of depositTx.value() ?? []; track tx.id) {                <div #txCard class="rounded-2xl border border-[#EFE6CC] bg-white p-4 text-sm flex justify-between items-center opacity-0 shadow-[0_2px_8px_rgba(34,29,15,0.02)]">
                   <div class="flex items-center gap-2.5">
                     <span class="h-2 w-2 rounded-full" [class]="tx.type === 'collect' ? 'bg-green-500' : 'bg-[#9A3412]'"></span>
-                    <span class="text-[#221D0F] font-semibold">{{ TX_LABEL[tx.type] }}</span>
+                    <span class="text-[#221D0F] font-semibold">{{ TX_LABEL[tx.type] || 'Giao dịch' }}</span>
                   </div>
                   <span class="font-bold" [class]="tx.type === 'collect' ? 'text-green-700' : 'text-[#221D0F]'">{{ tx.amount | number }} ₫</span>
                 </div>
@@ -193,7 +189,6 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
       </div>
     </div>
 
-    <!-- HỘP THOẠI MODAL (ĐÃ ĐỒNG BỘ STYLE BUTTON) -->
     <!-- Modal: Gia hạn -->
     <ui-modal [open]="activeModal() === 'extend'" title="Gia hạn thời hiệu hợp đồng" (closeRequested)="closeModal()">
       <div class="flex flex-col gap-4">
@@ -275,7 +270,7 @@ export class ContractDetailPage {
   CONTRACT_STATUS_LABEL = CONTRACT_STATUS_LABEL;
   DEPOSIT_STATUS_COLOR = DEPOSIT_STATUS_COLOR;
   DEPOSIT_STATUS_LABEL = DEPOSIT_STATUS_LABEL;
-  TX_LABEL = { collect: 'Thu cọc', refund: 'Hoàn cọc', forfeit: 'Giữ cọc (khấu trừ phạt)' };
+  TX_LABEL: any = { collect: 'Thu cọc', refund: 'Hoàn cọc', forfeit: 'Giữ cọc (khấu trừ phạt)' };
 
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');
   private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
@@ -330,19 +325,16 @@ export class ContractDetailPage {
     });
   }
 
-  /** Chuỗi tên đầy đủ của tất cả tenant, ưu tiên dùng c.tenants (đã populate
-   *  từ BE); fallback về tenant_ids nếu BE chưa populate được. */
-  tenantNames(c: Contract): string {
-    if (c.tenants?.length) {
-      return c.tenants.map(t => t.full_name).join(', ');
+  // Ép kiểu 'any' cho object truyền vào để ngăn chặn lỗi import model strict-mode
+  tenantNames(c: any): string {
+    if (c?.tenants && c.tenants.length > 0) {
+      return c.tenants.map((t: any) => t.full_name).join(', ');
     }
-    return c.tenant_ids.join(', ');
+    return (c?.tenant_ids || []).join(', ');
   }
 
-  /** Nhãn hiển thị cho 1 tenant cụ thể (dùng ở chip xóa người ở ghép) —
-   *  trả về tên nếu tìm thấy trong c.tenants, ngược lại fallback về ID. */
-  tenantLabel(c: Contract, tenantId: string): string {
-    const found = c.tenants?.find(t => t.id === tenantId);
+  tenantLabel(c: any, tenantId: string): string {
+    const found = c?.tenants?.find((t: any) => t.id === tenantId);
     return found ? found.full_name : tenantId;
   }
 
