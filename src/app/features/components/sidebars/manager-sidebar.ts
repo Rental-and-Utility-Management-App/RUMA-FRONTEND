@@ -120,7 +120,7 @@ export class ManagerSidebar {
   readonly navItems: NavItem[] = [
     { label: 'Tổng quan', route: '/dashboard', icon: 'home' },
     { label: 'Phòng', route: '/rooms', icon: 'door' },
-    { label: 'Tenant', route: '/tenants', icon: 'users' },
+    { label: 'Người thuê', route: '/tenants', icon: 'users' },
     { label: 'Hợp đồng', route: '/contracts', icon: 'file' },
     { label: 'Hóa đơn', route: '/invoices', icon: 'invoice' },
   ];

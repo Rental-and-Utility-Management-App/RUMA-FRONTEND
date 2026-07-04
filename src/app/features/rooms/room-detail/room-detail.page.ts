@@ -100,7 +100,7 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
               <div class="relative grid grid-cols-2 md:grid-cols-3 gap-6 mb-8">
                 <div class="flex flex-col gap-1.5">
                   <span class="text-sm text-[#8A8270]">Sức chứa</span>
-                  <span class="font-bold text-[#221D0F]">{{ r.occupants }}/{{ r.capacity }} người</span>
+                  <span class="font-bold text-[#221D0F]">{{ r.occupants }}{{ r.capacity }} người</span>
                 </div>
                 <div class="flex flex-col gap-1.5">
                   <span class="text-sm text-[#8A8270]">Giá thuê</span>

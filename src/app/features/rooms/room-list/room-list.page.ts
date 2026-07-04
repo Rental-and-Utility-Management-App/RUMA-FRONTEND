@@ -151,7 +151,7 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
                         </svg>
                         Sức chứa
                       </span>
-                      <span class="font-medium text-[#221D0F]">{{ room.occupants }}/{{ room.capacity }} người</span>
+                      <span class="font-medium text-[#221D0F]">{{ room.occupants }}{{ room.capacity }} người</span>
                     </div>
                     
                     <div class="flex items-center justify-between text-sm">
