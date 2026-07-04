@@ -4,7 +4,6 @@ import {
   inject,
   signal,
   computed,
-  resource,
   ElementRef,
   viewChild,
   afterNextRender,
@@ -17,7 +16,7 @@ import { UiInput } from '../../../shared/ui/input/input';
 import { ContractsService } from '../../../core/services/contracts.service';
 import { RoomsService } from '../../../core/services/rooms.service';
 import { UsersService } from '../../../core/services/users.service';
-import { Room, User } from '../../../core/models';
+import { Room, UserResponse } from '../../../core/models';
 import { AuthService } from '../../../core/auth/auth.service';
 import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
@@ -110,7 +109,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                       } @else if (users.error()) {
                         <p class="text-xs text-[#9A3412] px-1 py-2">Không thể tải danh sách khách thuê.</p>
                       } @else if (availableTenants().length === 0) {
-                        <p class="text-sm text-[#8A8270] px-1 py-2">Không có khách thuê nào đang trống (chưa có phòng).</p>
+                        <p class="text-sm text-[#8A8270] px-1 py-2">Không có khách thuê nào đang trống.</p>
                       } @else {
                         @for (u of availableTenants(); track u.id) {
                           <label
@@ -204,16 +203,11 @@ export class ContractFormPage {
   // Dùng lại resource phòng đã có sẵn ở RoomsService (giống pattern trong tenant-detail.ts).
   rooms = this.roomsService.roomsResource;
 
-  // Resource riêng cho danh sách user trong trang này.
-  // GIẢ ĐỊNH: UsersService có method `getAll()` trả về Promise<{ data: User[]; message: string; success: boolean }>,
-  // tương tự cấu trúc response /rooms bạn đã gửi. Nếu UsersService của bạn dùng tên khác
-  // (vd. list(), getAllUsers(), fetchTenants()...), đổi lại dòng loader bên dưới cho khớp.
-  users = resource({
-    loader: () => this.usersService.getAll(),
-  });
+  // Dùng lại resource user đã có sẵn ở UsersService (httpResource, giống pattern của rooms).
+  users = this.usersService.usersResource;
 
   private roomsList = computed<Room[]>(() => this.rooms.value()?.data ?? []);
-  private usersList = computed<User[]>(() => this.users.value()?.data ?? []);
+  private usersList = computed<UserResponse[]>(() => this.users.value()?.data ?? []);
 
   // Phòng còn slot trống để hiện trong dropdown.
   availableRooms = computed(() => this.roomsList().filter((r) => r.occupants < r.capacity));
