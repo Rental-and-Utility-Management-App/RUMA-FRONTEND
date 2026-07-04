@@ -55,7 +55,7 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
 
       <div class="relative md:pl-64">
         <div class="max-w-4xl mx-auto p-6 md:p-10">
-          
+
           <div #hero class="mb-8 opacity-0">
             <a routerLink="/rooms" class="inline-flex items-center gap-2 text-sm font-medium text-[#8A8270] hover:text-[#B8860B] transition-colors mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -77,10 +77,10 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
               <p class="text-sm font-medium text-[#9A3412]">Không tải được thông tin phòng.</p>
             </div>
           } @else if (room.value(); as r) {
-            
+
             <div #roomCard class="relative overflow-hidden rounded-3xl border border-[#EFE6CC] bg-white p-6 md:p-8 shadow-[0_2px_14px_rgba(34,29,15,0.05)] mb-8 opacity-0">
               <div class="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#FFC629]/10 blur-2xl pointer-events-none"></div>
-              
+
               <div class="relative flex items-center justify-between mb-8 pb-6 border-b border-[#F1EBD8]">
                 <div class="flex items-center gap-4">
                   <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#FBF7ED] text-xl font-bold text-[#8A6200]">
@@ -132,7 +132,7 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
                   <h3 class="text-sm font-bold text-[#221D0F] mb-4">Người đang ở ({{ r.tenants.length }})</h3>
                   <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     @for (tenant of r.tenants || []; track tenant.id) {
-                      <a 
+                      <a
                         [routerLink]="['/tenants', tenant.id]"
                         class="group flex items-center gap-3 rounded-xl bg-[#FBF7ED] p-3 border border-[#EFE6CC] transition-all hover:bg-white hover:border-[#FFC629] hover:shadow-sm"
                       >
@@ -206,7 +206,7 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
                       Đã cọc: <span class="font-semibold text-[#221D0F]">{{ c.deposit_paid | number }} ₫</span> / {{ c.deposit_amount | number }} ₫
                     </p>
                   </div>
-                  
+
                   <div class="hidden sm:flex h-10 w-10 items-center justify-center rounded-full bg-[#FBF7ED] text-[#B8860B] transition-transform group-hover:translate-x-1 group-hover:bg-[#FFC629] group-hover:text-[#221D0F]">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -239,7 +239,7 @@ export class RoomDetailPage {
 
   contracts = this.contractsService.contractsByRoom(() => this.id());
 
-  // Rào chắn kiểu 'any' phòng trường hợp Backend trả về kiểu dữ liệu mảng bị sai lệch 
+  // Rào chắn kiểu 'any' phòng trường hợp Backend trả về kiểu dữ liệu mảng bị sai lệch
   activeContracts() {
     const list = this.contracts.value()?.data || this.contracts.value() || [];
     if (!Array.isArray(list)) return [];
@@ -290,11 +290,26 @@ export class RoomDetailPage {
       }
     });
 
+    // FIX: trước đây flag `contractsAnimated` bị set = true ngay ở lần effect
+    // chạy đầu tiên (ngay khi contracts.value() có dữ liệu), nhưng lúc đó
+    // viewChildren('contractCard') thường CHƯA kịp query thấy các thẻ <a>/<div>
+    // vừa được @for/@empty render ra DOM (lệch 1 nhịp change detection).
+    // Hệ quả: card animate với mảng rỗng -> class "opacity-0" trong template
+    // không bao giờ được gỡ -> card vô hình vĩnh viễn nhưng routerLink vẫn
+    // hoạt động bình thường vì phần tử vẫn tồn tại trong DOM.
+    //
+    // Cách sửa: chỉ khoá `contractsAnimated = true` khi số lượng phần tử
+    // `contractCards()` đã khớp với số lượng mong đợi (hoặc >= 1 cho khối
+    // @empty). Nếu chưa khớp, effect sẽ tự re-run ở lần render kế tiếp thay
+    // vì bị khoá cứng sau lần chạy đầu tiên.
     effect(() => {
       const header = this.contractsHeader()?.nativeElement;
-      const cards = this.contractCards().map(c => c.nativeElement).filter(el => !!el);
+      const cards = this.contractCards().map((c) => c.nativeElement).filter((el) => !!el);
 
-      if (this.contracts.value() && !this.contractsAnimated) {
+      // @empty luôn render đúng 1 phần tử, nên số lượng mong đợi tối thiểu là 1
+      const expectedCount = Math.max(this.activeContracts().length, 1);
+
+      if (this.contracts.value() && !this.contractsAnimated && cards.length >= expectedCount) {
         this.contractsAnimated = true;
         setTimeout(() => {
           const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });

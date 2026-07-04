@@ -13,6 +13,7 @@ import { Router, RouterLink } from '@angular/router';
 import gsap from 'gsap';
 
 import { UiInput } from '../../../shared/ui/input/input';
+import { UiDatePicker } from '../../../shared/ui/date-picker/date-picker';
 import { ContractsService } from '../../../core/services/contracts.service';
 import { RoomsService } from '../../../core/services/rooms.service';
 import { UsersService } from '../../../core/services/users.service';
@@ -24,7 +25,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 @Component({
   selector: 'app-contract-form',
   standalone: true,
-  imports: [UiInput, RouterLink, TenantSidebar, ManagerSidebar],
+  imports: [UiInput, UiDatePicker, RouterLink, TenantSidebar, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
@@ -153,8 +154,8 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
               <div class="mb-6">
                 <h3 class="text-base font-bold text-[#221D0F] mb-4">Hiệu lực & Cam kết khác</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <ui-input class="block w-full" label="Ngày bắt đầu (*)" type="date" [(value)]="startDate" />
-                  <ui-input class="block w-full" label="Ngày kết thúc dự kiến (*)" type="date" [(value)]="endDate" />
+                  <ui-date-picker label="Ngày bắt đầu (*)" [(value)]="startDate" />
+                  <ui-date-picker label="Ngày kết thúc dự kiến (*)" [minDate]="startDate()" [(value)]="endDate" />
                   <ui-input class="block w-full md:col-span-2" label="Ghi chú điều khoản bổ sung (tùy chọn)" [(value)]="note" />
                 </div>
               </div>
