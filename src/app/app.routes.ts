@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
-import { managerGuard } from './core/guards/manager.guard';
 
 export const routes: Routes = [
   {
@@ -13,116 +12,38 @@ export const routes: Routes = [
     children: [
       {
         path: 'dashboard',
-        loadComponent: () =>
-          import('./features/dashboard/dashboard.page').then((m) => m.DashboardPage),
+        loadChildren: () =>
+          import('./features/dashboard/dashboard.routes').then((m) => m.DASHBOARD_ROUTES),
       },
       {
         path: 'rooms',
-        children: [
-          {
-            path: '',
-            loadComponent: () =>
-              import('./features/rooms/room-list/room-list.page').then((m) => m.RoomListPage),
-          },
-          {
-            path: 'new',
-            canActivate: [managerGuard],
-            loadComponent: () =>
-              import('./features/rooms/room-form/room-form.page').then((m) => m.RoomFormPage),
-          },
-          {
-            path: ':id/edit',
-            canActivate: [managerGuard],
-            loadComponent: () =>
-              import('./features/rooms/room-form/room-form.page').then((m) => m.RoomFormPage),
-          },
-          {
-            path: ':id',
-            loadComponent: () =>
-              import('./features/rooms/room-detail/room-detail.page').then(
-                (m) => m.RoomDetailPage
-              ),
-          },
-        ],
+        loadChildren: () =>
+          import('./features/rooms/rooms.routes').then((m) => m.ROOMS_ROUTES),
       },
       {
         path: 'tenants',
-        canActivate: [managerGuard],
-        children: [
-          {
-            path: '',
-            loadComponent: () =>
-              import('./features/tenants/tenant-list/tenant-list.page').then(
-                (m) => m.TenantListPage
-              ),
-          },
-          {
-            path: 'new',
-            loadComponent: () =>
-              import('./features/tenants/tenant-form/tenant-form.page').then(
-                (m) => m.TenantFormPage
-              ),
-          },
-          {
-            path: ':id',
-            loadComponent: () =>
-              import('./features/tenants/tenant-detail/tenant-detail.page').then(
-                (m) => m.TenantDetailPage
-              ),
-          },
-        ],
+        loadChildren: () =>
+          import('./features/tenants/tenants.routes').then((m) => m.TENANTS_ROUTES),
       },
       {
         path: 'contracts',
-        children: [
-          {
-            path: '',
-            loadComponent: () =>
-              import('./features/contracts/contract-list/contract-list.page').then(
-                (m) => m.ContractListPage
-              ),
-          },
-          {
-            path: ':id',
-            loadComponent: () =>
-              import('./features/contracts/contract-detail/contract-detail.page').then(
-                (m) => m.ContractDetailPage
-              ),
-          },
-        ],
+        loadChildren: () =>
+          import('./features/contracts/contracts.routes').then((m) => m.CONTRACTS_ROUTES),
       },
       {
         path: 'invoices',
-        children: [
-          {
-            path: '',
-            loadComponent: () =>
-              import('./features/invoices/invoice-list/invoice-list.page').then(
-                (m) => m.InvoiceListPage
-              ),
-          },
-          {
-            path: ':id',
-            loadComponent: () =>
-              import('./features/invoices/invoice-detail/invoice-detail.page').then(
-                (m) => m.InvoiceDetailPage
-              ),
-          },
-        ],
+        loadChildren: () =>
+          import('./features/invoices/invoices.routes').then((m) => m.INVOICES_ROUTES),
       },
       {
         path: 'payments',
-        loadComponent: () =>
-          import('./features/payments/payment-list/payment-list.page').then(
-            (m) => m.PaymentListPage
-          ),
+        loadChildren: () =>
+          import('./features/payments/payments.routes').then((m) => m.PAYMENTS_ROUTES),
       },
       {
-        path: 'settings/change-password',
-        loadComponent: () =>
-          import('./features/settings/change-password/change-password.page').then(
-            (m) => m.ChangePasswordPage
-          ),
+        path: 'settings',
+        loadChildren: () =>
+          import('./features/settings/settings.routes').then((m) => m.SETTINGS_ROUTES),
       },
       { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
     ],

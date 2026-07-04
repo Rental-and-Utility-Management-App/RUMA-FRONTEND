@@ -45,7 +45,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
       <div class="relative md:pl-64">
         <div class="max-w-3xl mx-auto p-6 md:p-10">
-          
+
           <div #hero class="mb-8 opacity-0">
             <a routerLink="/tenants" class="inline-flex items-center gap-2 text-sm font-medium text-[#8A8270] hover:text-[#B8860B] transition-colors mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -56,9 +56,21 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
             <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-[#221D0F]">Hồ sơ tài khoản</h1>
           </div>
 
-          @if (tenant.isLoading()) {
+          <!--
+            QUAN TRỌNG: chỉ hiện màn "Đang tải dữ liệu..." khi CHƯA từng có data (lần load đầu).
+            Nếu chỉ check tenant.isLoading(), thì mỗi lần gọi tenant.reload() (sau khi gán phòng,
+            khoá tài khoản...) khối @else if bên dưới sẽ bị unmount rồi tạo lại DOM mới, khiến
+            detailCard mất animation (do cờ cardAnimated chỉ chạy 1 lần) và bị kẹt ở opacity-0
+            -> nhìn như "trắng trang". Dùng !tenant.hasValue() để giữ nguyên DOM cũ trong lúc
+            reload ngầm phía sau.
+          -->
+          @if (tenant.isLoading() && !tenant.hasValue()) {
             <div class="flex justify-center py-10">
               <p class="text-sm text-[#8A8270] animate-pulse">Đang tải dữ liệu...</p>
+            </div>
+          } @else if (tenant.error()) {
+            <div class="flex items-center gap-3 rounded-xl bg-[#F4D9D2] p-4 text-sm font-medium text-[#9A3412]">
+              <p>Không thể tải dữ liệu người thuê. Vui lòng thử lại.</p>
             </div>
           } @else if (tenant.value(); as t) {
             <div #detailCard class="relative overflow-hidden rounded-3xl border border-[#EFE6CC] bg-white p-6 md:p-8 shadow-[0_2px_14px_rgba(34,29,15,0.05)] mb-6 opacity-0">
@@ -89,7 +101,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                   <span class="font-bold text-[#221D0F]">
                     @if (!t.room_id) {
                       Chưa gán phòng
-                    } @else if (rooms.isLoading()) {
+                    } @else if (rooms.isLoading() && !rooms.hasValue()) {
                       Đang tải...
                     } @else if (currentRoom(); as r) {
                       {{ r.name }}
@@ -103,7 +115,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
               <!-- Khu vực Hành động -->
               <div class="rounded-2xl bg-[#FBF7ED] p-5 border border-[#F1EBD8]">
                 <h3 class="text-sm font-bold text-[#221D0F] mb-4">Quản lý không gian</h3>
-                
+
                 @if (!t.room_id) {
                   <div class="flex flex-col sm:flex-row items-end gap-3">
                     <div class="w-full sm:flex-1 flex flex-col gap-1.5">
@@ -144,12 +156,12 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                   <p class="text-sm font-bold text-[#221D0F]">Bảo mật tài khoản</p>
                   <p class="text-xs text-[#8A8270] mt-0.5">Khóa tài khoản để ngăn người này đăng nhập.</p>
                 </div>
-                
+
                 <button
                   (click)="toggleActive()"
                   [disabled]="togglingActive()"
-                  [class]="t.is_active 
-                    ? 'rounded-full bg-[#F4D9D2] px-6 py-2.5 text-sm font-semibold text-[#9A3412] transition hover:bg-[#F0C9BE]' 
+                  [class]="t.is_active
+                    ? 'rounded-full bg-[#F4D9D2] px-6 py-2.5 text-sm font-semibold text-[#9A3412] transition hover:bg-[#F0C9BE]'
                     : 'rounded-full bg-[#FFC629] px-6 py-2.5 text-sm font-semibold text-[#221D0F] transition hover:bg-[#FFD764]'"
                 >
                   @if (togglingActive()) {
@@ -211,7 +223,11 @@ export class TenantDetailPage {
   private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
   private hero = viewChild<ElementRef<HTMLElement>>('hero');
   private detailCard = viewChild<ElementRef<HTMLElement>>('detailCard');
-  private cardAnimated = false;
+
+  // Theo dõi chính element đã được animate, thay vì chỉ 1 boolean dùng chung mãi mãi.
+  // Nhờ vậy nếu detailCard bị Angular huỷ và tạo lại (DOM node mới), effect vẫn nhận ra
+  // đây là node "chưa từng animate" và chạy lại GSAP, tránh bug kẹt opacity-0.
+  private animatedCardEl: HTMLElement | null = null;
 
   constructor() {
     afterNextRender(() => {
@@ -229,11 +245,18 @@ export class TenantDetailPage {
 
     effect(() => {
       const card = this.detailCard()?.nativeElement;
-      if (card && this.tenant.value() && !this.cardAnimated) {
-        this.cardAnimated = true;
+      const hasValue = this.tenant.hasValue();
+
+      if (card && hasValue && this.animatedCardEl !== card) {
+        this.animatedCardEl = card;
         setTimeout(() => {
           gsap.fromTo(card, { y: 20, opacity: 0 }, { y: 0, opacity: 1, duration: 0.4, ease: 'power3.out' });
         }, 50);
+      }
+
+      if (!card) {
+        // Card đã bị unmount (vd: chuyển sang trạng thái error/loading ban đầu) -> reset
+        this.animatedCardEl = null;
       }
     });
   }
