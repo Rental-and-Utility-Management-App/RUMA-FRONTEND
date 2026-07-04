@@ -20,7 +20,7 @@ import { UiInput } from '../../../shared/ui/input/input';
 import { UiModal } from '../../../shared/ui/modal/modal';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ContractsService } from '../../../core/services/contracts.service';
-import { ContractStatus, DEPOSIT_STATUS_COLOR, DEPOSIT_STATUS_LABEL } from '../../../core/models/contract.model';
+import { Contract, ContractStatus, DEPOSIT_STATUS_COLOR, DEPOSIT_STATUS_LABEL } from '../../../core/models/contract.model';
 import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
@@ -104,7 +104,7 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
               <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm mb-6">
                 <div class="flex flex-col gap-1">
                   <span class="text-[#8A8270]">Thành viên lưu trú</span>
-                  <span class="font-bold text-[#221D0F]">{{ c.tenant_ids.join(', ') }}</span>
+                  <span class="font-bold text-[#221D0F]">{{ tenantNames(c) }}</span>
                 </div>
                 <div class="flex flex-col gap-1">
                   <span class="text-[#8A8270]">Thời hạn chu kỳ thuê</span>
@@ -148,7 +148,7 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
                     <span class="text-xs text-[#8A8270] self-center w-full sm:w-auto mb-1 sm:mb-0">Xóa người ở ghép nhanh:</span>
                     @for (tid of c.tenant_ids; track tid) {
                       <span class="inline-flex items-center gap-2 rounded-full bg-[#FBF7ED] border border-[#EFE6CC] px-3 py-1 text-xs font-medium text-[#6B6455]">
-                        ID: {{ tid }}
+                        {{ tenantLabel(c, tid) }}
                         <button type="button" class="text-[#9A3412] hover:text-red-700 font-bold text-sm" (click)="removeTenant(tid)" [disabled]="removingTenant()">&times;</button>
                       </span>
                     }
@@ -328,6 +328,22 @@ export class ContractDetailPage {
         }, 50);
       }
     });
+  }
+
+  /** Chuỗi tên đầy đủ của tất cả tenant, ưu tiên dùng c.tenants (đã populate
+   *  từ BE); fallback về tenant_ids nếu BE chưa populate được. */
+  tenantNames(c: Contract): string {
+    if (c.tenants?.length) {
+      return c.tenants.map(t => t.full_name).join(', ');
+    }
+    return c.tenant_ids.join(', ');
+  }
+
+  /** Nhãn hiển thị cho 1 tenant cụ thể (dùng ở chip xóa người ở ghép) —
+   *  trả về tên nếu tìm thấy trong c.tenants, ngược lại fallback về ID. */
+  tenantLabel(c: Contract, tenantId: string): string {
+    const found = c.tenants?.find(t => t.id === tenantId);
+    return found ? found.full_name : tenantId;
   }
 
   openModal(kind: ModalKind) {

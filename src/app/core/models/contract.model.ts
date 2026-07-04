@@ -20,11 +20,23 @@ export interface RenewalRecord {
   created_at: string;
 }
 
+/** Thông tin rút gọn 1 tenant, do BE populate sẵn kèm theo contract
+ *  (xem populateContractTenants ở handlers/contract.go) — ưu tiên dùng field
+ *  này để hiển thị tên thay vì tự tra cứu theo tenant_ids. */
+export interface TenantBrief {
+  id: string;
+  full_name: string;
+  phone: string;
+}
+
 export interface Contract {
   id: string;
   room_id: string;
   room_code?: string;
   tenant_ids: string[];
+  /** Populate sẵn từ BE (có thể rỗng/undefined nếu BE chưa populate được,
+   *  hoặc tenant đã bị xóa) — luôn fallback về tenant_ids khi hiển thị. */
+  tenants?: TenantBrief[];
   monthly_rent: number;
   deposit_amount: number;
   deposit_paid: number;
