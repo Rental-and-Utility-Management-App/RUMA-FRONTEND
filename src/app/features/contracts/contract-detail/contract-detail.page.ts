@@ -378,7 +378,15 @@ export class ContractDetailPage {
     const users = this.allUsers.value()?.data ?? [];
     const c: any = this.contract.value();
     const existingIds: string[] = c?.tenant_ids || [];
-    return users.filter(u => u.role === 'tenant' && u.is_active && !existingIds.includes(u.id));
+    return users.filter(
+      u =>
+        u.role === 'tenant' &&
+        u.is_active &&
+        !existingIds.includes(u.id) &&
+        // Chỉ hiện người CHƯA có phòng nào (room_id rỗng) — người đã ở
+        // phòng khác thì không cho ghép thêm vào phòng này nữa.
+        !u.room_id
+    );
   }
 
   openModal(kind: ModalKind) {
