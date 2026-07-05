@@ -39,7 +39,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
         <app-tenant-sidebar />
       }
 
-      <div class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]" style="background-image: url('/assets/images/dashboard-bg.jpg');"></div>
+      <div class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]" style="background-image: url('/dashboard-bg.jpg');"></div>
       <div class="pointer-events-none absolute inset-0 -z-20 bg-linear-to-b from-[#FBF7ED]/60 via-[#FBF7ED]/85 to-[#FBF7ED]"></div>
 
       <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
@@ -49,7 +49,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
       <div class="relative md:pl-64">
         <div class="max-w-4xl mx-auto p-6 md:p-10">
-          
+
           <div #hero class="mb-8 opacity-0">
             <a routerLink="/invoices" class="inline-flex items-center gap-2 text-sm font-medium text-[#8A8270] hover:text-[#B8860B] transition-colors mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -215,13 +215,34 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
     <ui-modal [open]="paymentModalOpen()" title="Xác nhận khách nộp tiền" (closeRequested)="paymentModalOpen.set(false)">
       <div class="flex flex-col gap-4">
         <ui-input label="Nhập số tiền khách đã nộp (₫)" type="number" [(value)]="paymentAmount" />
-        @if (errorMessage()) {
+        @if (errorMessage() && !confirmModalOpen()) {
           <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
         }
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="paymentModalOpen.set(false)" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy bỏ</button>
-          <button type="button" (click)="onRecordPayment()" [disabled]="submittingPayment()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
-            {{ submittingPayment() ? 'Đang xử lý...' : 'Xác nhận thu tiền' }}
+          <button type="button" (click)="openConfirmModal()" [disabled]="submittingPayment()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
+            Xác nhận thu tiền
+          </button>
+        </div>
+      </div>
+    </ui-modal>
+
+    <ui-modal [open]="confirmModalOpen()" title="Xác nhận ghi nhận thanh toán" (closeRequested)="confirmModalOpen.set(false)">
+      <div class="flex flex-col gap-4">
+        <p class="text-sm text-[#6B6455]">
+          Bạn có chắc chắn muốn ghi nhận số tiền
+          <span class="font-bold text-[#221D0F]">{{ +paymentAmount() | number }} ₫</span>
+          là đã thanh toán cho hóa đơn này không? Hành động này không thể hoàn tác.
+        </p>
+        @if (errorMessage()) {
+          <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
+        }
+        <div class="flex gap-2 justify-end pt-2">
+          <button type="button" (click)="confirmModalOpen.set(false)" [disabled]="submittingPayment()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455] disabled:opacity-70">
+            Hủy bỏ
+          </button>
+          <button type="button" (click)="doRecordPayment()" [disabled]="submittingPayment()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
+            {{ submittingPayment() ? 'Đang xử lý...' : 'Đồng ý, ghi nhận' }}
           </button>
         </div>
       </div>
@@ -245,6 +266,7 @@ export class InvoiceDetailPage {
   qrCodeUrl = signal<string | null>(null);
   loadingQr = signal(false);
   paymentModalOpen = signal(false);
+  confirmModalOpen = signal(false);
   paymentAmount = signal('0');
   submittingPayment = signal(false);
   errorMessage = signal('');
@@ -327,7 +349,16 @@ export class InvoiceDetailPage {
     this.paymentModalOpen.set(true);
   }
 
-  async onRecordPayment() {
+  openConfirmModal() {
+    this.errorMessage.set('');
+    if (!this.paymentAmount() || Number(this.paymentAmount()) <= 0) {
+      this.errorMessage.set('Vui lòng nhập số tiền hợp lệ.');
+      return;
+    }
+    this.confirmModalOpen.set(true);
+  }
+
+  async doRecordPayment() {
     this.errorMessage.set('');
     this.submittingPayment.set(true);
     try {
@@ -336,8 +367,10 @@ export class InvoiceDetailPage {
         amount: Number(this.paymentAmount()),
         method: 'cash' as PaymentMethod,
       });
+      this.cardAnimated = false;
       this.invoice.reload();
       this.payments.reload();
+      this.confirmModalOpen.set(false);
       this.paymentModalOpen.set(false);
     } catch (err: any) {
       this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Ghi nhận thanh toán thất bại.');

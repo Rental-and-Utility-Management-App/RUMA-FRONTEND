@@ -43,7 +43,7 @@ const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
       }
 
       <!-- Ảnh nền mờ chìm -->
-      <div class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]" style="background-image: url('/assets/images/dashboard-bg.jpg');"></div>
+      <div class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]" style="background-image: url('/dashboard-bg.jpg');"></div>
       <div class="pointer-events-none absolute inset-0 -z-20 bg-linear-to-b from-[#FBF7ED]/60 via-[#FBF7ED]/85 to-[#FBF7ED]"></div>
 
       <!-- Nền gradient động -->

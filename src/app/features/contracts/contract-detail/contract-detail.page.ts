@@ -49,7 +49,7 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
         <app-tenant-sidebar />
       }
 
-      <div class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]" style="background-image: url('/assets/images/dashboard-bg.jpg');"></div>
+      <div class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]" style="background-image: url('/dashboard-bg.jpg');"></div>
       <div class="pointer-events-none absolute inset-0 -z-20 bg-linear-to-b from-[#FBF7ED]/60 via-[#FBF7ED]/85 to-[#FBF7ED]"></div>
 
       <div class="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
@@ -142,19 +142,6 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
                     </button>
                   }
                 </div>
-
-                @if (c.tenant_ids && c.tenant_ids.length > 1) {
-                  <div class="mt-4 flex flex-wrap gap-2 pt-3 border-t border-dashed border-[#F1EBD8]">
-                    <span class="text-xs text-[#8A8270] self-center w-full sm:w-auto mb-1 sm:mb-0">Xóa người ở ghép nhanh:</span>
-                    <!-- Dùng || [] để chống sập vòng lặp khi mảng chưa kịp bind -->
-                    @for (tid of c.tenant_ids || []; track tid) {
-                      <span class="inline-flex items-center gap-2 rounded-full bg-[#FBF7ED] border border-[#EFE6CC] px-3 py-1 text-xs font-medium text-[#6B6455]">
-                        {{ tenantLabel(c, tid) }}
-                        <button type="button" class="text-[#9A3412] hover:text-red-700 font-bold text-sm" (click)="removeTenant(tid)" [disabled]="removingTenant()">&times;</button>
-                      </span>
-                    }
-                  </div>
-                }
               }
 
               @if (errorMessage()) {
@@ -288,7 +275,6 @@ export class ContractDetailPage {
   activeModal = signal<ModalKind>(null);
   submitting = signal(false);
   cancelling = signal(false);
-  removingTenant = signal(false);
   errorMessage = signal('');
 
   extendEndDate = signal('');
@@ -365,11 +351,6 @@ export class ContractDetailPage {
     return (c?.tenant_ids || []).join(', ');
   }
 
-  tenantLabel(c: any, tenantId: string): string {
-    const found = c?.tenants?.find((t: any) => t.id === tenantId);
-    return found ? found.full_name : tenantId;
-  }
-
   // Danh sách người dùng khả dụng để thêm vào hợp đồng hiện tại:
   // - phải có role 'tenant'
   // - đang active
@@ -402,6 +383,7 @@ export class ContractDetailPage {
     this.submitting.set(true);
     try {
       await fn();
+      this.cardAnimated = false;
       this.contract.reload();
       this.depositTx.reload();
       this.closeModal();
@@ -449,24 +431,12 @@ export class ContractDetailPage {
     this.cancelling.set(true);
     try {
       await this.contractsService.cancel(this.id());
+      this.cardAnimated = false;
       this.contract.reload();
     } catch (err: any) {
       this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Hủy hợp đồng thất bại.');
     } finally {
       this.cancelling.set(false);
-    }
-  }
-
-  async removeTenant(tenantId: string) {
-    this.errorMessage.set('');
-    this.removingTenant.set(true);
-    try {
-      await this.contractsService.removeTenant(this.id(), tenantId);
-      this.contract.reload();
-    } catch (err: any) {
-      this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Gỡ tenant thất bại.');
-    } finally {
-      this.removingTenant.set(false);
     }
   }
 }
