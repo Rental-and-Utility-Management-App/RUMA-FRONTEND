@@ -70,7 +70,22 @@ body {
       font-weight: 700;
       color: #221D0F;
 
+      /* Ghi đè layout absolute + overflow:hidden mặc định của flatpickr —
+         vốn được thiết kế cho tên tháng tiếng Anh ngắn, không đủ chỗ cho
+         "Tháng bảy", "Tháng chín"... của locale Vietnamese, khiến input
+         năm bị đẩy ra ngoài vùng overflow:hidden. */
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      width: 100%;
+      height: auto;
+      overflow: visible;
+
       .flatpickr-monthDropdown-months {
+        position: static;
+        width: auto;
         font-weight: 700;
         color: #221D0F;
         background: transparent;
@@ -81,6 +96,10 @@ body {
       }
 
       .numInputWrapper {
+        position: static;
+        width: 3.8em;
+        flex: none;
+
         span.arrowUp:after {
           border-bottom-color: #8A6200;
         }
