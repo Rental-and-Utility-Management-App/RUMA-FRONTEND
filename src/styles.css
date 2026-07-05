@@ -18,6 +18,18 @@ body {
    nên CSS scoped trong component sẽ KHÔNG áp dụng được vào đây.)
    =================================================================== */
 .ui-date-picker-calendar.flatpickr-calendar {
+  /* Tailwind preflight ép box-sizing: border-box lên MỌI phần tử (kể cả
+     phần tử được flatpickr append ra ngoài <body>). Nhưng flatpickr tự
+     tính width % cho từng ô ngày dựa trên giả định box-sizing: content-box
+     (CSS gốc của flatpickr set cứng width theo content-box). Nếu bị Tailwind
+     đè thành border-box, border/padding cộng dồn vào width có sẵn khiến
+     tổng chiều rộng 7 cột bị lệch — cột cuối (CN) bị đẩy ra ngoài/cắt mất.
+     Ép lại content-box cho toàn bộ cây con để flatpickr tính đúng như thiết kế gốc. */
+  box-sizing: content-box;
+  * {
+    box-sizing: content-box;
+  }
+
   background: #ffffff;
   border: 1px solid #EFE6CC;
   border-radius: 1rem;

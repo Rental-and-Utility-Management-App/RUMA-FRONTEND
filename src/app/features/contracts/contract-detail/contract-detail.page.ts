@@ -17,9 +17,12 @@ import gsap from 'gsap';
 
 import { UiBadge } from '../../../shared/ui/badge/badge';
 import { UiInput } from '../../../shared/ui/input/input';
+import { UiDatePicker } from '../../../shared/ui/date-picker/date-picker';
 import { UiModal } from '../../../shared/ui/modal/modal';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ContractsService } from '../../../core/services/contracts.service';
+import { UsersService } from '../../../core/services/users.service';
+import { UserResponse } from '../../../core/models';
 import { ContractStatus, DEPOSIT_STATUS_COLOR, DEPOSIT_STATUS_LABEL } from '../../../core/models/contract.model';
 import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
@@ -36,7 +39,7 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
 @Component({
   selector: 'app-contract-detail',
   standalone: true,
-  imports: [RouterLink, UiBadge, UiInput, UiModal, DecimalPipe, DatePipe, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, UiBadge, UiInput, UiDatePicker, UiModal, DecimalPipe, DatePipe, TenantSidebar, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
@@ -56,7 +59,7 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
 
       <div class="relative md:pl-64">
         <div class="max-w-4xl mx-auto p-6 md:p-10">
-          
+
           <div #hero class="mb-8 opacity-0">
             <a routerLink="/contracts" class="inline-flex items-center gap-2 text-sm font-medium text-[#8A8270] hover:text-[#B8860B] transition-colors mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -76,7 +79,7 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
               <p class="text-sm font-medium text-[#9A3412]">Không tải được hợp đồng.</p>
             </div>
           } @else if (contract.value(); as c) {
-            
+
             <div #mainCard class="relative overflow-hidden rounded-3xl border border-[#EFE6CC] bg-white p-6 md:p-8 shadow-[0_2px_14px_rgba(34,29,15,0.05)] mb-6 opacity-0">
               <div class="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#FFC629]/10 blur-2xl pointer-events-none"></div>
 
@@ -171,7 +174,8 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
             <p class="text-sm text-[#8A8270] animate-pulse">Đang nạp lịch sử giao dịch...</p>
           } @else {
             <div class="space-y-2.5">
-              @for (tx of depositTx.value() ?? []; track tx.id) {                <div #txCard class="rounded-2xl border border-[#EFE6CC] bg-white p-4 text-sm flex justify-between items-center opacity-0 shadow-[0_2px_8px_rgba(34,29,15,0.02)]">
+              @for (tx of depositTx.value() ?? []; track tx.id) {
+                <div #txCard class="rounded-2xl border border-[#EFE6CC] bg-white p-4 text-sm flex justify-between items-center opacity-0 shadow-[0_2px_8px_rgba(34,29,15,0.02)]">
                   <div class="flex items-center gap-2.5">
                     <span class="h-2 w-2 rounded-full" [class]="tx.type === 'collect' ? 'bg-green-500' : 'bg-[#9A3412]'"></span>
                     <span class="text-[#221D0F] font-semibold">{{ TX_LABEL[tx.type] || 'Giao dịch' }}</span>
@@ -192,7 +196,7 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
     <!-- Modal: Gia hạn -->
     <ui-modal [open]="activeModal() === 'extend'" title="Gia hạn thời hiệu hợp đồng" (closeRequested)="closeModal()">
       <div class="flex flex-col gap-4">
-        <ui-input label="Ngày kết thúc mới (*)" type="date" [(value)]="extendEndDate" />
+        <ui-date-picker label="Ngày kết thúc mới (*)" [(value)]="extendEndDate" />
         <ui-input label="Giá thuê điều chỉnh (bỏ trống nếu giữ nguyên)" type="number" [(value)]="extendRent" />
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="closeModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy bỏ</button>
@@ -215,7 +219,7 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
     <!-- Modal: Checkout -->
     <ui-modal [open]="activeModal() === 'checkout'" title="Xác nhận tất toán bàn giao phòng" (closeRequested)="closeModal()">
       <div class="flex flex-col gap-4">
-        <ui-input label="Ngày kết thúc thực tế (*)" type="date" [(value)]="checkoutDate" />
+        <ui-date-picker label="Ngày kết thúc thực tế (*)" [(value)]="checkoutDate" />
         <ui-input label="Số tiền hoàn lại cho khách (₫)" type="number" [(value)]="refundAmount" />
         <ui-input label="Số tiền khấu trừ phạt (₫)" type="number" [(value)]="forfeitAmount" />
         <div class="flex gap-2 justify-end pt-2">
@@ -228,10 +232,30 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
     <!-- Modal: Thêm tenant -->
     <ui-modal [open]="activeModal() === 'add-tenant'" title="Bổ sung thành viên ở ghép" (closeRequested)="closeModal()">
       <div class="flex flex-col gap-4">
-        <ui-input label="Nhập ID Khách thuê mới (tenant_id) (*)" [(value)]="newTenantId" />
+        @if (allUsers.isLoading()) {
+          <p class="text-sm text-[#8A8270] animate-pulse">Đang tải danh sách người dùng...</p>
+        } @else if (allUsers.error()) {
+          <p class="text-sm text-[#9A3412]">Không tải được danh sách người dùng.</p>
+        } @else {
+          <div class="flex flex-col gap-1.5">
+            <label class="text-sm font-medium text-[#6B6455]">Chọn khách thuê (*)</label>
+            <select
+              [value]="newTenantId()"
+              (change)="newTenantId.set($any($event.target).value)"
+              class="rounded-xl border border-[#EFE6CC] bg-white px-4 py-2.5 text-sm text-[#221D0F] focus:outline-none focus:ring-2 focus:ring-[#FFC629]"
+            >
+              <option value="" disabled selected>-- Chọn người dùng --</option>
+              @for (u of availableTenants(); track u.id) {
+                <option [value]="u.id">{{ u.full_name }} — {{ u.phone }} (Phòng {{ u.room?.code || u.room_id }})</option>
+              }
+            </select>
+          </div>
+        }
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="closeModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy</button>
-          <button type="button" (click)="onAddTenant()" class="rounded-full bg-[#221D0F] px-6 py-2.5 text-xs font-semibold text-white">Thêm vào phòng</button>
+          <button type="button" (click)="onAddTenant()" [disabled]="!newTenantId() || submitting()" class="rounded-full bg-[#221D0F] px-6 py-2.5 text-xs font-semibold text-white disabled:opacity-60">
+            {{ submitting() ? 'Đang xử lý...' : 'Thêm vào phòng' }}
+          </button>
         </div>
       </div>
     </ui-modal>
@@ -242,6 +266,7 @@ export class ContractDetailPage {
 
   auth = inject(AuthService);
   private contractsService = inject(ContractsService);
+  private usersService = inject(UsersService);
 
   contract = resource({
     params: () => ({ id: this.id() }),
@@ -252,6 +277,13 @@ export class ContractDetailPage {
     params: () => ({ id: this.id() }),
     loader: ({ params }) => this.contractsService.getDepositTransactions(params.id),
   });
+
+  // Danh sách toàn bộ người dùng (đã cache sẵn ở UsersService, dùng chung app)
+  // dùng để đổ dropdown "Thêm người ở ghép". Lưu ý: usersResource trả về cả
+  // envelope ApiResponse, phải lấy qua .value()?.data.
+  get allUsers() {
+    return this.usersService.usersResource;
+  }
 
   activeModal = signal<ModalKind>(null);
   submitting = signal(false);
@@ -336,6 +368,17 @@ export class ContractDetailPage {
   tenantLabel(c: any, tenantId: string): string {
     const found = c?.tenants?.find((t: any) => t.id === tenantId);
     return found ? found.full_name : tenantId;
+  }
+
+  // Danh sách người dùng khả dụng để thêm vào hợp đồng hiện tại:
+  // - phải có role 'tenant'
+  // - đang active
+  // - chưa nằm trong danh sách tenant_ids của hợp đồng hiện tại
+  availableTenants(): UserResponse[] {
+    const users = this.allUsers.value()?.data ?? [];
+    const c: any = this.contract.value();
+    const existingIds: string[] = c?.tenant_ids || [];
+    return users.filter(u => u.role === 'tenant' && u.is_active && !existingIds.includes(u.id));
   }
 
   openModal(kind: ModalKind) {

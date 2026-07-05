@@ -138,16 +138,18 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
               </div>
 
               <div class="relative flex flex-wrap gap-3 mt-8 pt-6 border-t border-[#F1EBD8]">
-                <button (click)="loadQr()" class="flex items-center gap-2 rounded-full bg-[#F1EBD8] px-6 py-2.5 text-sm font-semibold text-[#221D0F] transition hover:bg-[#E9E4D6] disabled:opacity-60" [disabled]="loadingQr()">
-                  @if (loadingQr()) {
-                    Đang tạo mã QR...
-                  } @else {
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                    </svg>
-                    Quét mã thanh toán (VietQR)
-                  }
-                </button>
+                @if (inv.status !== 'paid') {
+                  <button (click)="loadQr()" class="flex items-center gap-2 rounded-full bg-[#F1EBD8] px-6 py-2.5 text-sm font-semibold text-[#221D0F] transition hover:bg-[#E9E4D6] disabled:opacity-60" [disabled]="loadingQr()">
+                    @if (loadingQr()) {
+                      Đang tạo mã QR...
+                    } @else {
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                      </svg>
+                      Quét mã thanh toán (VietQR)
+                    }
+                  </button>
+                }
                 @if (auth.isManager() && inv.status !== 'paid' && inv.status !== 'cancelled') {
                   <button (click)="openPaymentModal()" class="flex items-center gap-2 rounded-full bg-[#FFC629] px-6 py-2.5 text-sm font-bold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764]">
                     Ghi nhận thanh toán tay
@@ -309,7 +311,8 @@ export class InvoiceDetailPage {
     this.loadingQr.set(true);
     try {
       const qr = await this.invoicesService.getQrCode(this.id());
-      this.qrCodeUrl.set(qr.startsWith('http') || qr.startsWith('data:') ? qr : `data:image/png;base64,${qr}`);
+      const url = qr.qr_code_url;
+      this.qrCodeUrl.set(url.startsWith('http') || url.startsWith('data:') ? url : `data:image/png;base64,${url}`);
     } catch (err: any) {
       this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Không tạo được mã QR.');
     } finally {

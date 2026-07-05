@@ -24,11 +24,22 @@ export interface CreateInvoicePayload {
   due_date: string;
 }
 
+/** Shape thực tế của response GET /invoices/:id/qr-code (đã confirm qua response mẫu) */
+export interface QrCodeInfo {
+  account_name: string;
+  account_no: string;
+  add_info: string;
+  amount: number;
+  bank_id: string;
+  invoice_id: string;
+  payment_ref_code: string;
+  qr_code_url: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class InvoicesService {
   private http = inject(HttpClient);
 
-  /** filtersFn là hàm getter để đọc filter reactive (giống pattern contractsByRoom) */
   list(filtersFn: () => InvoiceFilters = () => ({})) {
     return httpResource<ApiResponse<Invoice[]>>(() => {
       const f = filtersFn();
@@ -55,7 +66,6 @@ export class InvoicesService {
   }
 
   async update(id: string, payload: Partial<CreateInvoicePayload>): Promise<Invoice> {
-    // Chỉ sửa được khi paid_amount == 0 (luật #5)
     const res = await firstValueFrom(this.http.put<ApiResponse<Invoice>>(`${BASE}/${id}`, payload));
     if (!res.success || !res.data) throw new Error(res.message || 'Cập nhật hóa đơn thất bại');
     return res.data;
@@ -67,16 +77,15 @@ export class InvoicesService {
   }
 
   /**
-   * LƯU Ý: shape response chưa được brief mô tả chi tiết (chỉ nói "sinh mã VietQR").
-   * Giả định field `qr_code` (base64 hoặc URL ảnh) — kiểm tra lại Swagger UI
-   * (http://localhost:8080/swagger/index.html) để confirm field name chính xác,
-   * rồi sửa lại type ở đây nếu khác.
+   * Trả về QrCodeInfo đầy đủ (không chỉ mỗi URL), vì response còn có
+   * account_name, account_no, amount, bank_id, add_info... hữu ích để hiển thị
+   * thông tin chuyển khoản thủ công bên cạnh ảnh QR.
    */
-  async getQrCode(id: string): Promise<string> {
+  async getQrCode(id: string): Promise<QrCodeInfo> {
     const res = await firstValueFrom(
-      this.http.get<ApiResponse<{ qr_code: string }>>(`${BASE}/${id}/qr-code`)
+      this.http.get<ApiResponse<QrCodeInfo>>(`${BASE}/${id}/qr-code`)
     );
     if (!res.success || !res.data) throw new Error(res.message || 'Không tạo được mã QR');
-    return res.data.qr_code;
+    return res.data;
   }
 }

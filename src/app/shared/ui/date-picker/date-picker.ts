@@ -22,12 +22,22 @@ import gsap from 'gsap';
  *  - dateFormat 'Y-m-d' -> giá trị THẬT SỰ lưu vào `value` (ISO yyyy-MM-dd),
  *    giữ nguyên format cũ để không phải sửa lại phần gửi API.
  *
+ * LƯU Ý QUAN TRỌNG về altInput: khi bật `altInput: true`, flatpickr set
+ * input gốc (#inputEl) thành `type="hidden"` và TẠO MỚI một <input> khác
+ * chèn cạnh nó để hiển thị/thao tác. Input mới này KHÔNG kế thừa `class`
+ * của input gốc — nó chỉ nhận đúng những gì khai báo trong `altInputClass`.
+ * Vì vậy toàn bộ class Tailwind style phải được truyền qua `altInputClass`,
+ * nếu không ô hiển thị sẽ bị mất style (chỉ còn input trần mặc định).
+ *
  * Popup lịch được flatpickr append trực tiếp vào <body>, nằm ngoài phạm vi
  * ViewEncapsulation của component này -> style + animation cho popup phải
  * xử lý qua: (1) class `.ui-date-picker-calendar` gắn ở onReady để CSS global
  * scope đúng, (2) GSAP chạy trong onOpen/onClose vì không thể dùng Angular
  * animation hay CSS transition scoped bình thường.
  */
+const INPUT_CLASS =
+  'w-full rounded-xl border border-[#D8D2C2] bg-white px-4 py-2.5 text-sm text-[#221D0F] focus:outline-none focus:ring-2 focus:ring-[#FFC629] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed';
+
 @Component({
   selector: 'ui-date-picker',
   standalone: true,
@@ -42,12 +52,14 @@ import gsap from 'gsap';
         [placeholder]="placeholder()"
         readonly
         [disabled]="disabled()"
-        class="w-full rounded-xl border border-[#D8D2C2] bg-white px-4 py-2.5 text-sm text-[#221D0F] focus:outline-none focus:ring-2 focus:ring-[#FFC629] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+        [class]="INPUT_CLASS"
       />
     </div>
   `,
 })
 export class UiDatePicker implements OnDestroy {
+  protected readonly INPUT_CLASS = INPUT_CLASS;
+
   label = input<string>('');
   placeholder = input<string>('dd/mm/yyyy');
   disabled = input<boolean>(false);
@@ -59,14 +71,12 @@ export class UiDatePicker implements OnDestroy {
   private inputEl = viewChild.required<ElementRef<HTMLInputElement>>('inputEl');
   private fp: ReturnType<typeof flatpickr> | null = null;
 
-  // Chặn flatpickr đóng popup ngay lập tức để GSAP kịp chạy hiệu ứng fade-out.
-  private closing = false;
-
   constructor() {
     afterNextRender(() => {
       this.fp = flatpickr(this.inputEl().nativeElement, {
         dateFormat: 'Y-m-d',
         altInput: true,
+        altInputClass: INPUT_CLASS,
         altFormat: 'd/m/Y',
         locale: Vietnamese,
         defaultDate: this.value() || undefined,
@@ -83,7 +93,6 @@ export class UiDatePicker implements OnDestroy {
           gsap.set(instance.calendarContainer, { opacity: 0, y: -8, scale: 0.96 });
         },
         onOpen: (_dates, _str, instance) => {
-          this.closing = false;
           gsap.to(instance.calendarContainer, {
             opacity: 1,
             y: 0,
@@ -93,20 +102,27 @@ export class UiDatePicker implements OnDestroy {
           });
         },
         onClose: (_dates, _str, instance) => {
-          // flatpickr ẩn popup ngay khi onClose chạy xong (đồng bộ) nên phải
-          // tự "giữ" popup lại bằng open() rồi để GSAP tween xong mới đóng thật.
-          if (this.closing) return; // lần gọi lại sau khi tween xong, cho đóng luôn
-          this.closing = true;
-
-          instance.open(); // huỷ lệnh đóng của flatpickr, giữ popup hiển thị
-          gsap.to(instance.calendarContainer, {
+          // KHÔNG gọi instance.open()/close() lại — điều đó sẽ trigger toàn bộ
+          // logic mở thật (tính lại vị trí, bắn lại onOpen), gây giật/nhấp nháy.
+          // Thay vào đó tự giữ popup hiển thị bằng đúng class + display mà CSS
+          // của flatpickr dùng để control visibility ('.flatpickr-calendar.open'),
+          // rồi tự dọn lại sau khi GSAP tween xong — không đụng đến state nội bộ
+          // (isOpen) của flatpickr nên không re-trigger onOpen/onClose.
+          const el = instance.calendarContainer;
+          el.classList.add('open');
+          el.style.display = 'block';
+          gsap.to(el, {
             opacity: 0,
             y: -8,
             scale: 0.96,
             duration: 0.16,
             ease: 'power2.in',
             onComplete: () => {
-              instance.close(); // đóng thật, lần này onClose sẽ thấy this.closing=true và bỏ qua
+              el.classList.remove('open');
+              el.style.display = '';
+              // Reset về trạng thái ẩn sẵn cho lần mở kế tiếp (tránh chớp opacity:1
+              // một khung hình trước khi onOpen tween chạy lại).
+              gsap.set(el, { opacity: 0, y: -8, scale: 0.96 });
             },
           });
         },
@@ -120,6 +136,24 @@ export class UiDatePicker implements OnDestroy {
       if (instance && v !== instance.input.value) {
         instance.setDate(v || null, false);
       }
+    });
+
+    // Đồng bộ `disabled`: flatpickr chỉ copy giá trị này MỘT LẦN lúc tạo altInput,
+    // nên nếu binding [disabled] đổi giá trị sau đó, phải tự set lại tay ở cả
+    // input gốc (đã bị ẩn) lẫn altInput (input thật hiển thị cho người dùng).
+    effect(() => {
+      const d = this.disabled();
+      const instance = this.fp as any;
+      if (instance?.altInput) instance.altInput.disabled = d;
+      if (instance?.input) instance.input.disabled = d;
+    });
+
+    // Đồng bộ `minDate`: cũng chỉ được đọc 1 lần lúc khởi tạo, nếu cần đổi động
+    // (vd sau khi load dữ liệu ngày bắt đầu hợp đồng) phải set lại qua API của flatpickr.
+    effect(() => {
+      const min = this.minDate();
+      const instance = this.fp as any;
+      if (instance) instance.set('minDate', min || null);
     });
   }
 
