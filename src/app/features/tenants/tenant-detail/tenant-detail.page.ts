@@ -15,7 +15,7 @@ import { RouterLink } from '@angular/router';
 import gsap from 'gsap';
 
 import { UiBadge } from '../../../shared/ui/badge/badge';
-import { ConfirmService, ConfirmDialog } from '../../../shared/ui/confirm/confirm';
+import { ConfirmService } from '../../../shared/ui/confirm/confirm';
 import { UsersService } from '../../../core/services/users.service';
 import { RoomsService } from '../../../core/services/rooms.service';
 import { Room } from '../../../core/models';
@@ -26,11 +26,9 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 @Component({
   selector: 'app-tenant-detail',
   standalone: true,
-  imports: [RouterLink, UiBadge, ConfirmDialog, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, UiBadge, TenantSidebar, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-confirm-dialog />
-
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
       @if (auth.isManager()) {
         <app-manager-sidebar />

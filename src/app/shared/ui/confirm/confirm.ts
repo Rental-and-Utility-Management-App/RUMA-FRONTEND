@@ -37,8 +37,9 @@ interface ConfirmState extends ConfirmOptions {
  *     // ... thực hiện thao tác / gọi API
  *   }
  *
- * Nhớ đặt <app-confirm-dialog /> một lần trong template (thường ở root
- * component hoặc ngay trong template của trang đang dùng).
+ * <ui-confirm /> đã được đặt 1 lần duy nhất ở app.ts (root component) nên
+ * không cần import/khai báo lại UiConfirm ở từng trang — chỉ cần inject
+ * ConfirmService và gọi ask() là đủ.
  */
 @Injectable({ providedIn: 'root' })
 export class ConfirmService {
@@ -66,7 +67,7 @@ export class ConfirmService {
 }
 
 @Component({
-  selector: 'app-confirm-dialog',
+  selector: 'ui-confirm',
   standalone: true,
   imports: [UiModal],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -106,7 +107,7 @@ export class ConfirmService {
     }
   `,
 })
-export class ConfirmDialog {
+export class UiConfirm {
   confirm = inject(ConfirmService);
 
   onCancel() {

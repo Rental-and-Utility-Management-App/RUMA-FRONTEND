@@ -19,7 +19,7 @@ import { UiBadge } from '../../../shared/ui/badge/badge';
 import { UiInput } from '../../../shared/ui/input/input';
 import { UiDatePicker } from '../../../shared/ui/date-picker/date-picker';
 import { UiModal } from '../../../shared/ui/modal/modal';
-import { ConfirmService, ConfirmDialog } from '../../../shared/ui/confirm/confirm';
+import { ConfirmService } from '../../../shared/ui/confirm/confirm';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ContractsService } from '../../../core/services/contracts.service';
 import { UsersService } from '../../../core/services/users.service';
@@ -40,11 +40,9 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
 @Component({
   selector: 'app-contract-detail',
   standalone: true,
-  imports: [RouterLink, UiBadge, UiInput, UiDatePicker, UiModal, ConfirmDialog, DecimalPipe, DatePipe, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, UiBadge, UiInput, UiDatePicker, UiModal, DecimalPipe, DatePipe, TenantSidebar, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-confirm-dialog />
-
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
       @if (auth.isManager()) {
         <app-manager-sidebar />

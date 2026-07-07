@@ -18,7 +18,7 @@ import gsap from 'gsap';
 import { UiBadge } from '../../../shared/ui/badge/badge';
 import { UiInput } from '../../../shared/ui/input/input';
 import { UiModal } from '../../../shared/ui/modal/modal';
-import { ConfirmService, ConfirmDialog } from '../../../shared/ui/confirm/confirm';
+import { ConfirmService } from '../../../shared/ui/confirm/confirm';
 import { AuthService } from '../../../core/auth/auth.service';
 import { InvoicesService } from '../../../core/services/invoices.service';
 import { PaymentsService } from '../../../core/services/payments.service';
@@ -30,11 +30,9 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 @Component({
   selector: 'app-invoice-detail',
   standalone: true,
-  imports: [RouterLink, UiBadge, UiInput, UiModal, ConfirmDialog, DecimalPipe, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, UiBadge, UiInput, UiModal, DecimalPipe, TenantSidebar, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-confirm-dialog />
-
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
       @if (auth.isManager()) {
         <app-manager-sidebar />
