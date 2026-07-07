@@ -18,6 +18,7 @@ import gsap from 'gsap';
 import { UiBadge } from '../../../shared/ui/badge/badge';
 import { UiInput } from '../../../shared/ui/input/input';
 import { UiModal } from '../../../shared/ui/modal/modal';
+import { ConfirmService, ConfirmDialog } from '../../../shared/ui/confirm/confirm';
 import { AuthService } from '../../../core/auth/auth.service';
 import { InvoicesService } from '../../../core/services/invoices.service';
 import { PaymentsService } from '../../../core/services/payments.service';
@@ -29,9 +30,11 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 @Component({
   selector: 'app-invoice-detail',
   standalone: true,
-  imports: [RouterLink, UiBadge, UiInput, UiModal, DecimalPipe, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, UiBadge, UiInput, UiModal, ConfirmDialog, DecimalPipe, TenantSidebar, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <app-confirm-dialog />
+
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
       @if (auth.isManager()) {
         <app-manager-sidebar />
@@ -69,7 +72,13 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
               <p class="text-sm font-medium text-[#9A3412]">Không tải được hóa đơn.</p>
             </div>
           } @else if (invoice.value(); as inv) {
-            <div #mainCard class="relative overflow-hidden rounded-3xl border border-[#EFE6CC] bg-white p-6 md:p-8 shadow-[0_2px_14px_rgba(34,29,15,0.05)] mb-8 opacity-0">
+            <div
+              #mainCard
+              class="relative overflow-hidden rounded-3xl border bg-white p-6 md:p-8 shadow-[0_2px_14px_rgba(34,29,15,0.05)] mb-8 opacity-0"
+              [class.border-dashed]="inv.status === 'draft'"
+              [class.border-[#D8CBA0]]="inv.status === 'draft'"
+              [class.border-[#EFE6CC]]="inv.status !== 'draft'"
+            >
               <div class="absolute -right-10 -top-10 h-32 w-32 rounded-full bg-[#FFC629]/10 blur-2xl pointer-events-none"></div>
 
               <div class="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-[#F1EBD8]">
@@ -89,6 +98,16 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 </ui-badge>
               </div>
 
+              @if (inv.status === 'draft') {
+                <div class="relative mb-6 rounded-2xl bg-[#FBF7ED] border border-dashed border-[#D8CBA0] p-5">
+                  <p class="text-sm font-semibold text-[#8A6200] mb-1">Hóa đơn nháp - chưa có chỉ số điện/nước</p>
+                  <p class="text-xs text-[#8A8270]">
+                    Tiền phòng và phí quản lý đã được tính sẵn theo hợp đồng. Số tiền tổng cộng sẽ chỉ được tính
+                    sau khi điền chỉ số điện/nước thực tế bên dưới.
+                  </p>
+                </div>
+              }
+
               <div class="relative mb-6 rounded-2xl bg-[#FBF7ED] border border-[#F1EBD8] overflow-hidden">
                 <div class="grid grid-cols-1 divide-y divide-[#F1EBD8]">
                   <div class="flex justify-between p-4 items-center">
@@ -98,16 +117,28 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                   <div class="flex justify-between p-4 items-center">
                     <div>
                       <span class="text-sm font-medium text-[#6B6455] block">Tiền điện</span>
-                      <span class="text-xs text-[#8A8270]">Số cũ: {{ inv.electric_old }} &rarr; Số mới: {{ inv.electric_new }}</span>
+                      @if (inv.status === 'draft') {
+                        <span class="text-xs text-[#8A8270]">Số cũ: {{ inv.electric_old }} &rarr; Số mới: chưa xác nhận</span>
+                      } @else {
+                        <span class="text-xs text-[#8A8270]">Số cũ: {{ inv.electric_old }} &rarr; Số mới: {{ inv.electric_new }}</span>
+                      }
                     </div>
-                    <span class="font-bold text-[#221D0F]">{{ inv.electric_amount | number }} ₫</span>
+                    <span class="font-bold text-[#221D0F]">
+                      @if (inv.status === 'draft') { — } @else { {{ inv.electric_amount | number }} ₫ }
+                    </span>
                   </div>
                   <div class="flex justify-between p-4 items-center">
                     <div>
                       <span class="text-sm font-medium text-[#6B6455] block">Tiền nước</span>
-                      <span class="text-xs text-[#8A8270]">Số cũ: {{ inv.water_old }} &rarr; Số mới: {{ inv.water_new }}</span>
+                      @if (inv.status === 'draft') {
+                        <span class="text-xs text-[#8A8270]">Số cũ: {{ inv.water_old }} &rarr; Số mới: chưa xác nhận</span>
+                      } @else {
+                        <span class="text-xs text-[#8A8270]">Số cũ: {{ inv.water_old }} &rarr; Số mới: {{ inv.water_new }}</span>
+                      }
                     </div>
-                    <span class="font-bold text-[#221D0F]">{{ inv.water_amount | number }} ₫</span>
+                    <span class="font-bold text-[#221D0F]">
+                      @if (inv.status === 'draft') { — } @else { {{ inv.water_amount | number }} ₫ }
+                    </span>
                   </div>
                   <div class="flex justify-between p-4 items-center">
                     <span class="text-sm font-medium text-[#6B6455]">Phí quản lý & Dịch vụ</span>
@@ -125,35 +156,52 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
               <div class="relative pt-4 flex flex-col gap-3">
                 <div class="flex justify-between items-center text-lg">
                   <span class="font-bold text-[#221D0F]">TỔNG CỘNG</span>
-                  <span class="font-black text-2xl text-[#221D0F]">{{ inv.total_amount | number }} ₫</span>
+                  <span class="font-black text-2xl text-[#221D0F]">
+                    @if (inv.status === 'draft') { — } @else { {{ inv.total_amount | number }} ₫ }
+                  </span>
                 </div>
-                <div class="flex justify-between items-center text-sm border-t border-dashed border-[#EFE6CC] pt-3">
-                  <span class="font-medium text-[#8A8270]">Đã thanh toán</span>
-                  <span class="font-bold text-green-600">{{ inv.paid_amount | number }} ₫</span>
-                </div>
-                <div class="flex justify-between items-center text-sm border-t border-dashed border-[#EFE6CC] pt-3">
-                  <span class="font-bold text-[#221D0F]">SỐ TIỀN CÒN LẠI</span>
-                  <span class="font-bold text-[#9A3412] text-lg">{{ ((inv.total_amount || 0) - (inv.paid_amount || 0)) | number }} ₫</span>
-                </div>
+                @if (inv.status !== 'draft') {
+                  <div class="flex justify-between items-center text-sm border-t border-dashed border-[#EFE6CC] pt-3">
+                    <span class="font-medium text-[#8A8270]">Đã thanh toán</span>
+                    <span class="font-bold text-green-600">{{ inv.paid_amount | number }} ₫</span>
+                  </div>
+                  <div class="flex justify-between items-center text-sm border-t border-dashed border-[#EFE6CC] pt-3">
+                    <span class="font-bold text-[#221D0F]">SỐ TIỀN CÒN LẠI</span>
+                    <span class="font-bold text-[#9A3412] text-lg">{{ ((inv.total_amount || 0) - (inv.paid_amount || 0)) | number }} ₫</span>
+                  </div>
+                }
               </div>
 
               <div class="relative flex flex-wrap gap-3 mt-8 pt-6 border-t border-[#F1EBD8]">
-                @if (inv.status !== 'paid') {
-                  <button (click)="loadQr()" class="flex items-center gap-2 rounded-full bg-[#F1EBD8] px-6 py-2.5 text-sm font-semibold text-[#221D0F] transition hover:bg-[#E9E4D6] disabled:opacity-60" [disabled]="loadingQr()">
-                    @if (loadingQr()) {
-                      Đang tạo mã QR...
-                    } @else {
+                @if (inv.status === 'draft') {
+                  @if (auth.isManager()) {
+                    <button (click)="openConfirmDraftModal(inv)" class="flex items-center gap-2 rounded-full bg-[#FFC629] px-6 py-2.5 text-sm font-bold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764]">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      Quét mã thanh toán (VietQR)
-                    }
-                  </button>
-                }
-                @if (auth.isManager() && inv.status !== 'paid' && inv.status !== 'cancelled') {
-                  <button (click)="openPaymentModal()" class="flex items-center gap-2 rounded-full bg-[#FFC629] px-6 py-2.5 text-sm font-bold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764]">
-                    Ghi nhận thanh toán tay
-                  </button>
+                      Xác nhận chỉ số điện/nước
+                    </button>
+                  } @else {
+                    <p class="text-sm text-[#8A8270]">Hóa đơn đang được lập, vui lòng chờ quản lý xác nhận.</p>
+                  }
+                } @else {
+                  @if (inv.status !== 'paid') {
+                    <button (click)="loadQr()" class="flex items-center gap-2 rounded-full bg-[#F1EBD8] px-6 py-2.5 text-sm font-semibold text-[#221D0F] transition hover:bg-[#E9E4D6] disabled:opacity-60" [disabled]="loadingQr()">
+                      @if (loadingQr()) {
+                        Đang tạo mã QR...
+                      } @else {
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                        </svg>
+                        Quét mã thanh toán (VietQR)
+                      }
+                    </button>
+                  }
+                  @if (auth.isManager() && inv.status !== 'paid' && inv.status !== 'cancelled') {
+                    <button (click)="openPaymentModal()" class="flex items-center gap-2 rounded-full bg-[#FFC629] px-6 py-2.5 text-sm font-bold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764]">
+                      Ghi nhận thanh toán tay
+                    </button>
+                  }
                 }
               </div>
 
@@ -165,7 +213,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 </div>
               }
 
-              @if (errorMessage()) {
+              @if (errorMessage() && !paymentModalOpen() && !confirmDraftModalOpen()) {
                 <div class="mt-6 flex items-center gap-3 rounded-xl bg-[#F4D9D2] p-4 text-sm font-medium text-[#9A3412]">
                   <p>{{ errorMessage() }}</p>
                 </div>
@@ -215,34 +263,36 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
     <ui-modal [open]="paymentModalOpen()" title="Xác nhận khách nộp tiền" (closeRequested)="paymentModalOpen.set(false)">
       <div class="flex flex-col gap-4">
         <ui-input label="Nhập số tiền khách đã nộp (₫)" type="number" [(value)]="paymentAmount" />
-        @if (errorMessage() && !confirmModalOpen()) {
+        @if (errorMessage()) {
           <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
         }
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="paymentModalOpen.set(false)" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy bỏ</button>
-          <button type="button" (click)="openConfirmModal()" [disabled]="submittingPayment()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
+          <button type="button" (click)="submitPaymentAmount()" [disabled]="submittingPayment()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
             Xác nhận thu tiền
           </button>
         </div>
       </div>
     </ui-modal>
 
-    <ui-modal [open]="confirmModalOpen()" title="Xác nhận ghi nhận thanh toán" (closeRequested)="confirmModalOpen.set(false)">
+    <ui-modal [open]="confirmDraftModalOpen()" title="Xác nhận hóa đơn nháp" (closeRequested)="confirmDraftModalOpen.set(false)">
       <div class="flex flex-col gap-4">
         <p class="text-sm text-[#6B6455]">
-          Bạn có chắc chắn muốn ghi nhận số tiền
-          <span class="font-bold text-[#221D0F]">{{ +paymentAmount() | number }} ₫</span>
-          là đã thanh toán cho hóa đơn này không? Hành động này không thể hoàn tác.
+          Nhập chỉ số điện/nước thực tế. Hệ thống sẽ tự tính lại tổng tiền và chuyển hóa đơn sang trạng thái chưa thanh toán.
         </p>
+        <div class="grid grid-cols-2 gap-3">
+          <ui-input label="Chỉ số điện mới (*)" type="number" [(value)]="confirmElectricNew" />
+          <ui-input label="Chỉ số nước mới (*)" type="number" [(value)]="confirmWaterNew" />
+        </div>
         @if (errorMessage()) {
           <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
         }
         <div class="flex gap-2 justify-end pt-2">
-          <button type="button" (click)="confirmModalOpen.set(false)" [disabled]="submittingPayment()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455] disabled:opacity-70">
+          <button type="button" (click)="confirmDraftModalOpen.set(false)" [disabled]="confirmingDraft()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455] disabled:opacity-70">
             Hủy bỏ
           </button>
-          <button type="button" (click)="doRecordPayment()" [disabled]="submittingPayment()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
-            {{ submittingPayment() ? 'Đang xử lý...' : 'Đồng ý, ghi nhận' }}
+          <button type="button" (click)="submitConfirmDraft()" [disabled]="confirmingDraft()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
+            {{ confirmingDraft() ? 'Đang xử lý...' : 'Xác nhận & tính tiền' }}
           </button>
         </div>
       </div>
@@ -255,6 +305,7 @@ export class InvoiceDetailPage {
   auth = inject(AuthService);
   private invoicesService = inject(InvoicesService);
   private paymentsService = inject(PaymentsService);
+  private confirm = inject(ConfirmService);
 
   invoice = resource({
     params: () => ({ id: this.id() }),
@@ -266,10 +317,15 @@ export class InvoiceDetailPage {
   qrCodeUrl = signal<string | null>(null);
   loadingQr = signal(false);
   paymentModalOpen = signal(false);
-  confirmModalOpen = signal(false);
   paymentAmount = signal('0');
   submittingPayment = signal(false);
   errorMessage = signal('');
+
+  // ---- Modal: xác nhận hóa đơn nháp (điền chỉ số điện/nước) ----
+  confirmDraftModalOpen = signal(false);
+  confirmElectricNew = signal('0');
+  confirmWaterNew = signal('0');
+  confirmingDraft = signal(false);
 
   INVOICE_STATUS_COLOR = INVOICE_STATUS_COLOR;
   INVOICE_STATUS_LABEL = INVOICE_STATUS_LABEL;
@@ -349,33 +405,87 @@ export class InvoiceDetailPage {
     this.paymentModalOpen.set(true);
   }
 
-  openConfirmModal() {
+  /** Bấm "Xác nhận thu tiền" trong modal nhập liệu -> validate rồi hỏi xác nhận qua ConfirmService. */
+  async submitPaymentAmount() {
     this.errorMessage.set('');
-    if (!this.paymentAmount() || Number(this.paymentAmount()) <= 0) {
+    const amount = Number(this.paymentAmount());
+    if (!this.paymentAmount() || amount <= 0) {
       this.errorMessage.set('Vui lòng nhập số tiền hợp lệ.');
       return;
     }
-    this.confirmModalOpen.set(true);
+
+    const ok = await this.confirm.ask({
+      title: 'Xác nhận ghi nhận thanh toán',
+      message: `Bạn có chắc chắn muốn ghi nhận số tiền ${amount.toLocaleString('vi-VN')} ₫ là đã thanh toán cho hóa đơn này không? Hành động này không thể hoàn tác.`,
+      confirmText: 'Đồng ý, ghi nhận',
+    });
+    if (!ok) return;
+
+    await this.doRecordPayment(amount);
   }
 
-  async doRecordPayment() {
+  private async doRecordPayment(amount: number) {
     this.errorMessage.set('');
     this.submittingPayment.set(true);
+    this.confirm.setProcessing(true);
     try {
       await this.paymentsService.create({
         invoice_id: this.id(),
-        amount: Number(this.paymentAmount()),
+        amount,
         method: 'cash' as PaymentMethod,
       });
       this.cardAnimated = false;
       this.invoice.reload();
       this.payments.reload();
-      this.confirmModalOpen.set(false);
       this.paymentModalOpen.set(false);
     } catch (err: any) {
       this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Ghi nhận thanh toán thất bại.');
     } finally {
       this.submittingPayment.set(false);
+      this.confirm.setProcessing(false);
+    }
+  }
+
+  openConfirmDraftModal(inv: any) {
+    this.errorMessage.set('');
+    this.confirmElectricNew.set(String(inv.electric_old ?? 0));
+    this.confirmWaterNew.set(String(inv.water_old ?? 0));
+    this.confirmDraftModalOpen.set(true);
+  }
+
+  /** Bấm "Xác nhận & tính tiền" trong modal nhập liệu -> hỏi xác nhận qua ConfirmService rồi mới gọi API. */
+  async submitConfirmDraft() {
+    this.errorMessage.set('');
+    const electric = Number(this.confirmElectricNew());
+    const water = Number(this.confirmWaterNew());
+
+    const ok = await this.confirm.ask({
+      title: 'Xác nhận chỉ số điện/nước',
+      message: `Chỉ số điện mới: ${electric.toLocaleString('vi-VN')}\nChỉ số nước mới: ${water.toLocaleString('vi-VN')}\n\nHệ thống sẽ tính lại tổng tiền và chuyển hóa đơn sang trạng thái chưa thanh toán. Bạn có chắc chắn muốn tiếp tục?`,
+      confirmText: 'Xác nhận & tính tiền',
+    });
+    if (!ok) return;
+
+    await this.onConfirmDraft(electric, water);
+  }
+
+  private async onConfirmDraft(electricNew: number, waterNew: number) {
+    this.errorMessage.set('');
+    this.confirmingDraft.set(true);
+    this.confirm.setProcessing(true);
+    try {
+      await this.invoicesService.confirmDraft(this.id(), {
+        electric_new: electricNew,
+        water_new: waterNew,
+      });
+      this.cardAnimated = false;
+      this.invoice.reload();
+      this.confirmDraftModalOpen.set(false);
+    } catch (err: any) {
+      this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Xác nhận hóa đơn thất bại.');
+    } finally {
+      this.confirmingDraft.set(false);
+      this.confirm.setProcessing(false);
     }
   }
 }

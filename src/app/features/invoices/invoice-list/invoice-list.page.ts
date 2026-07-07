@@ -76,6 +76,13 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
             }
           </div>
 
+          @if (generateToast()) {
+            <div class="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-green-200 bg-[#E5F5E9] px-5 py-3.5 text-sm text-green-800">
+              <span>{{ generateToast() }}</span>
+              <button type="button" (click)="generateToast.set(null)" class="text-green-700 hover:text-green-900 font-bold text-sm shrink-0">&times;</button>
+            </div>
+          }
+
           @if (auth.isManager() && draftCount() > 0) {
             <button
               (click)="statusFilter.set('draft')"
@@ -215,18 +222,6 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
           <p class="text-sm text-[#9A3412]">{{ generateError() }}</p>
         }
 
-        @if (generateResult(); as result) {
-          <div class="rounded-xl bg-[#E5F5E9] border border-green-200 p-4 text-sm text-green-800">
-            Đã tạo mới <span class="font-bold">{{ result.created }}</span> hóa đơn,
-            bỏ qua <span class="font-bold">{{ result.skipped }}</span> phòng đã có hóa đơn,
-            @if (result.errors && result.errors.length > 0) {
-              lỗi <span class="font-bold">{{ result.errors.length }}</span> phòng.
-            } @else {
-              không có lỗi nào.
-            }
-          </div>
-        }
-
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="closeGenerateModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Đóng</button>
           <button type="button" (click)="onGenerateDraft()" [disabled]="generating()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
@@ -289,7 +284,8 @@ export class InvoiceListPage {
   generateYear = signal(String(new Date().getFullYear()));
   generating = signal(false);
   generateError = signal('');
-  generateResult = signal<{ created: number; skipped: number; errors: string[] } | null>(null);
+  generateToast = signal<string | null>(null);
+  private generateToastTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ---- Modal: xác nhận hóa đơn nháp ----
   confirmModalOpen = signal(false);
@@ -353,7 +349,6 @@ export class InvoiceListPage {
 
   openGenerateModal() {
     this.generateError.set('');
-    this.generateResult.set(null);
     this.generateModalOpen.set(true);
   }
 
@@ -363,20 +358,33 @@ export class InvoiceListPage {
 
   async onGenerateDraft() {
     this.generateError.set('');
-    this.generateResult.set(null);
     this.generating.set(true);
     try {
       const result = await this.invoicesService.generateDraft({
         month: Number(this.generateMonth()),
         year: Number(this.generateYear()),
       });
-      this.generateResult.set(result);
       this.invoices.reload();
+
+      // Tự đóng modal ngay khi thành công, thay bằng toast tóm tắt kết quả
+      // hiện ở đầu trang trong vài giây rồi tự ẩn.
+      this.closeGenerateModal();
+      const errorCount = result.errors?.length ?? 0;
+      const message =
+        `Đã tạo mới ${result.created} hóa đơn, bỏ qua ${result.skipped} phòng đã có hóa đơn` +
+        (errorCount > 0 ? `, lỗi ${errorCount} phòng.` : '.');
+      this.showGenerateToast(message);
     } catch (err: any) {
       this.generateError.set(err?.error?.message ?? err?.message ?? 'Tạo hóa đơn nháp thất bại.');
     } finally {
       this.generating.set(false);
     }
+  }
+
+  private showGenerateToast(message: string) {
+    if (this.generateToastTimer) clearTimeout(this.generateToastTimer);
+    this.generateToast.set(message);
+    this.generateToastTimer = setTimeout(() => this.generateToast.set(null), 6000);
   }
 
   openConfirmModal(inv: any) {

@@ -19,6 +19,7 @@ import { UiBadge } from '../../../shared/ui/badge/badge';
 import { UiInput } from '../../../shared/ui/input/input';
 import { UiDatePicker } from '../../../shared/ui/date-picker/date-picker';
 import { UiModal } from '../../../shared/ui/modal/modal';
+import { ConfirmService, ConfirmDialog } from '../../../shared/ui/confirm/confirm';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ContractsService } from '../../../core/services/contracts.service';
 import { UsersService } from '../../../core/services/users.service';
@@ -39,9 +40,11 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
 @Component({
   selector: 'app-contract-detail',
   standalone: true,
-  imports: [RouterLink, UiBadge, UiInput, UiDatePicker, UiModal, DecimalPipe, DatePipe, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, UiBadge, UiInput, UiDatePicker, UiModal, ConfirmDialog, DecimalPipe, DatePipe, TenantSidebar, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <app-confirm-dialog />
+
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
       @if (auth.isManager()) {
         <app-manager-sidebar />
@@ -137,7 +140,7 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
                   <button (click)="openModal('add-tenant')" class="rounded-full bg-[#221D0F] px-5 py-2 text-xs font-semibold text-white transition hover:bg-black">Thêm người ở ghép</button>
                   <button (click)="openModal('checkout')" class="rounded-full bg-[#F4D9D2] px-5 py-2 text-xs font-semibold text-[#9A3412] transition hover:bg-[#F0C9BE]">Checkout phòng</button>
                   @if (c.deposit_paid === 0) {
-                    <button (click)="onCancel()" [disabled]="cancelling()" class="rounded-full border border-[#9A3412] px-5 py-2 text-xs font-semibold text-[#9A3412] transition hover:bg-[#F4D9D2]">
+                    <button (click)="submitCancel()" [disabled]="cancelling()" class="rounded-full border border-[#9A3412] px-5 py-2 text-xs font-semibold text-[#9A3412] transition hover:bg-[#F4D9D2]">
                       {{ cancelling() ? 'Đang hủy...' : 'Hủy hợp đồng' }}
                     </button>
                   }
@@ -185,9 +188,12 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
       <div class="flex flex-col gap-4">
         <ui-date-picker label="Ngày kết thúc mới (*)" [(value)]="extendEndDate" />
         <ui-input label="Giá thuê điều chỉnh (bỏ trống nếu giữ nguyên)" type="number" [(value)]="extendRent" />
+        @if (errorMessage()) {
+          <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
+        }
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="closeModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy bỏ</button>
-          <button type="button" (click)="onExtend()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F]">Xác nhận</button>
+          <button type="button" (click)="submitExtend()" [disabled]="submitting()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">Xác nhận</button>
         </div>
       </div>
     </ui-modal>
@@ -196,9 +202,12 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
     <ui-modal [open]="activeModal() === 'collect-deposit'" title="Thu hồi bổ sung tiền cọc" (closeRequested)="closeModal()">
       <div class="flex flex-col gap-4">
         <ui-input label="Số tiền quỹ nạp thêm (₫) (*)" type="number" [(value)]="collectAmount" />
+        @if (errorMessage()) {
+          <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
+        }
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="closeModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy bỏ</button>
-          <button type="button" (click)="onCollectDeposit()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F]">Nạp quỹ cọc</button>
+          <button type="button" (click)="submitCollectDeposit()" [disabled]="submitting()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">Nạp quỹ cọc</button>
         </div>
       </div>
     </ui-modal>
@@ -209,9 +218,12 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
         <ui-date-picker label="Ngày kết thúc thực tế (*)" [(value)]="checkoutDate" />
         <ui-input label="Số tiền hoàn lại cho khách (₫)" type="number" [(value)]="refundAmount" />
         <ui-input label="Số tiền khấu trừ phạt (₫)" type="number" [(value)]="forfeitAmount" />
+        @if (errorMessage()) {
+          <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
+        }
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="closeModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy</button>
-          <button type="button" (click)="onCheckout()" class="rounded-full bg-[#9A3412] px-6 py-2.5 text-xs font-bold text-white">Xác nhận thanh lý</button>
+          <button type="button" (click)="submitCheckout()" [disabled]="submitting()" class="rounded-full bg-[#9A3412] px-6 py-2.5 text-xs font-bold text-white disabled:opacity-70">Xác nhận thanh lý</button>
         </div>
       </div>
     </ui-modal>
@@ -238,9 +250,12 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
             </select>
           </div>
         }
+        @if (errorMessage()) {
+          <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
+        }
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="closeModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy</button>
-          <button type="button" (click)="onAddTenant()" [disabled]="!newTenantId() || submitting()" class="rounded-full bg-[#221D0F] px-6 py-2.5 text-xs font-semibold text-white disabled:opacity-60">
+          <button type="button" (click)="submitAddTenant()" [disabled]="!newTenantId() || submitting()" class="rounded-full bg-[#221D0F] px-6 py-2.5 text-xs font-semibold text-white disabled:opacity-60">
             {{ submitting() ? 'Đang xử lý...' : 'Thêm vào phòng' }}
           </button>
         </div>
@@ -254,6 +269,7 @@ export class ContractDetailPage {
   auth = inject(AuthService);
   private contractsService = inject(ContractsService);
   private usersService = inject(UsersService);
+  private confirm = inject(ConfirmService);
 
   contract = resource({
     params: () => ({ id: this.id() }),
@@ -381,6 +397,7 @@ export class ContractDetailPage {
   private async runAction(fn: () => Promise<unknown>) {
     this.errorMessage.set('');
     this.submitting.set(true);
+    this.confirm.setProcessing(true);
     try {
       await fn();
       this.cardAnimated = false;
@@ -391,10 +408,30 @@ export class ContractDetailPage {
       this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Có lỗi xảy ra.');
     } finally {
       this.submitting.set(false);
+      this.confirm.setProcessing(false);
     }
   }
 
-  onExtend() {
+  // ---- Gia hạn ----
+  async submitExtend() {
+    this.errorMessage.set('');
+    if (!this.extendEndDate()) {
+      this.errorMessage.set('Vui lòng chọn ngày kết thúc mới.');
+      return;
+    }
+    const rentText = this.extendRent()
+      ? `\nGiá thuê điều chỉnh: ${Number(this.extendRent()).toLocaleString('vi-VN')} ₫/tháng`
+      : '';
+    const ok = await this.confirm.ask({
+      title: 'Xác nhận gia hạn hợp đồng',
+      message: `Gia hạn hợp đồng đến ngày ${this.extendEndDate()}?${rentText}`,
+      confirmText: 'Xác nhận gia hạn',
+    });
+    if (!ok) return;
+    await this.onExtend();
+  }
+
+  private onExtend() {
     return this.runAction(() =>
       this.contractsService.extend(this.id(), {
         new_end_date: this.extendEndDate(),
@@ -403,7 +440,24 @@ export class ContractDetailPage {
     );
   }
 
-  onCollectDeposit() {
+  // ---- Thu cọc ----
+  async submitCollectDeposit() {
+    this.errorMessage.set('');
+    const amount = Number(this.collectAmount());
+    if (!this.collectAmount() || amount <= 0) {
+      this.errorMessage.set('Vui lòng nhập số tiền hợp lệ.');
+      return;
+    }
+    const ok = await this.confirm.ask({
+      title: 'Xác nhận thu cọc',
+      message: `Ghi nhận nạp thêm ${amount.toLocaleString('vi-VN')} ₫ vào quỹ tiền cọc của hợp đồng này?`,
+      confirmText: 'Xác nhận thu cọc',
+    });
+    if (!ok) return;
+    await this.onCollectDeposit();
+  }
+
+  private onCollectDeposit() {
     return this.runAction(() =>
       this.contractsService.collectDeposit(this.id(), {
         amount: Number(this.collectAmount()),
@@ -412,7 +466,26 @@ export class ContractDetailPage {
     );
   }
 
-  onCheckout() {
+  // ---- Checkout ----
+  async submitCheckout() {
+    this.errorMessage.set('');
+    if (!this.checkoutDate()) {
+      this.errorMessage.set('Vui lòng chọn ngày kết thúc thực tế.');
+      return;
+    }
+    const refund = Number(this.refundAmount()) || 0;
+    const forfeit = Number(this.forfeitAmount()) || 0;
+    const ok = await this.confirm.ask({
+      title: 'Xác nhận tất toán bàn giao phòng',
+      message: `Checkout ngày ${this.checkoutDate()}.\nHoàn lại khách: ${refund.toLocaleString('vi-VN')} ₫\nKhấu trừ phạt: ${forfeit.toLocaleString('vi-VN')} ₫\n\nHành động này không thể hoàn tác. Bạn có chắc chắn muốn tiếp tục?`,
+      confirmText: 'Xác nhận thanh lý',
+      danger: true,
+    });
+    if (!ok) return;
+    await this.onCheckout();
+  }
+
+  private onCheckout() {
     return this.runAction(() =>
       this.contractsService.checkout(this.id(), {
         actual_end_date: this.checkoutDate(),
@@ -422,13 +495,41 @@ export class ContractDetailPage {
     );
   }
 
-  onAddTenant() {
+  // ---- Thêm tenant ----
+  async submitAddTenant() {
+    this.errorMessage.set('');
+    if (!this.newTenantId()) return;
+    const tenant = this.availableTenants().find(u => u.id === this.newTenantId());
+    const ok = await this.confirm.ask({
+      title: 'Xác nhận thêm người ở ghép',
+      message: `Thêm ${tenant?.full_name || 'khách thuê này'} vào hợp đồng hiện tại?`,
+      confirmText: 'Thêm vào phòng',
+    });
+    if (!ok) return;
+    await this.onAddTenant();
+  }
+
+  private onAddTenant() {
     return this.runAction(() => this.contractsService.addTenant(this.id(), this.newTenantId()));
   }
 
-  async onCancel() {
+  // ---- Hủy hợp đồng ----
+  async submitCancel() {
+    this.errorMessage.set('');
+    const ok = await this.confirm.ask({
+      title: 'Xác nhận hủy hợp đồng',
+      message: 'Bạn có chắc chắn muốn hủy hợp đồng này không? Hành động này không thể hoàn tác.',
+      confirmText: 'Hủy hợp đồng',
+      danger: true,
+    });
+    if (!ok) return;
+    await this.onCancel();
+  }
+
+  private async onCancel() {
     this.errorMessage.set('');
     this.cancelling.set(true);
+    this.confirm.setProcessing(true);
     try {
       await this.contractsService.cancel(this.id());
       this.cardAnimated = false;
@@ -437,6 +538,7 @@ export class ContractDetailPage {
       this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Hủy hợp đồng thất bại.');
     } finally {
       this.cancelling.set(false);
+      this.confirm.setProcessing(false);
     }
   }
 }

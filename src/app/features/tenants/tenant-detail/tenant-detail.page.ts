@@ -15,6 +15,7 @@ import { RouterLink } from '@angular/router';
 import gsap from 'gsap';
 
 import { UiBadge } from '../../../shared/ui/badge/badge';
+import { ConfirmService, ConfirmDialog } from '../../../shared/ui/confirm/confirm';
 import { UsersService } from '../../../core/services/users.service';
 import { RoomsService } from '../../../core/services/rooms.service';
 import { Room } from '../../../core/models';
@@ -25,9 +26,11 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 @Component({
   selector: 'app-tenant-detail',
   standalone: true,
-  imports: [RouterLink, UiBadge, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, UiBadge, ConfirmDialog, TenantSidebar, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <app-confirm-dialog />
+
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
       @if (auth.isManager()) {
         <app-manager-sidebar />
@@ -139,12 +142,12 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                         }
                       </select>
                     </div>
-                    <button (click)="assignRoom()" [disabled]="assigning() || !roomIdInput()" class="w-full sm:w-auto flex justify-center items-center rounded-xl bg-[#221D0F] px-6 py-2.5 text-sm font-semibold text-[#FFC629] transition hover:bg-black disabled:opacity-70">
+                    <button (click)="submitAssignRoom()" [disabled]="assigning() || !roomIdInput()" class="w-full sm:w-auto flex justify-center items-center rounded-xl bg-[#221D0F] px-6 py-2.5 text-sm font-semibold text-[#FFC629] transition hover:bg-black disabled:opacity-70">
                       {{ assigning() ? 'Đang gán...' : 'Gán phòng' }}
                     </button>
                   </div>
                 } @else {
-                  <button (click)="unassignRoom()" [disabled]="unassigning()" class="rounded-full bg-white border border-[#D8D2C2] px-6 py-2.5 text-sm font-semibold text-[#6B6455] transition hover:bg-[#F1EBD8] hover:text-[#221D0F] disabled:opacity-70">
+                  <button (click)="submitUnassignRoom()" [disabled]="unassigning()" class="rounded-full bg-white border border-[#D8D2C2] px-6 py-2.5 text-sm font-semibold text-[#6B6455] transition hover:bg-[#F1EBD8] hover:text-[#221D0F] disabled:opacity-70">
                     {{ unassigning() ? 'Đang xử lý...' : 'Thu hồi quyền sử dụng phòng' }}
                   </button>
                 }
@@ -158,7 +161,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 </div>
 
                 <button
-                  (click)="toggleActive()"
+                  (click)="submitToggleActive()"
                   [disabled]="togglingActive()"
                   [class]="t.is_active
                     ? 'rounded-full bg-[#F4D9D2] px-6 py-2.5 text-sm font-semibold text-[#9A3412] transition hover:bg-[#F0C9BE]'
@@ -190,6 +193,7 @@ export class TenantDetailPage {
   auth = inject(AuthService);
   private usersService = inject(UsersService);
   private roomsService = inject(RoomsService);
+  private confirm = inject(ConfirmService);
 
   tenant = resource({
     params: () => ({ id: this.id() }),
@@ -266,10 +270,26 @@ export class TenantDetailPage {
     this.roomIdInput.set(value);
   }
 
-  async assignRoom() {
+  /** Bấm "Gán phòng" -> hỏi xác nhận qua ConfirmService trước khi gọi API. */
+  async submitAssignRoom() {
     if (!this.roomIdInput()) return;
     this.errorMessage.set('');
+
+    const room = this.availableRooms().find((r) => r.id === this.roomIdInput());
+    const ok = await this.confirm.ask({
+      title: 'Xác nhận gán phòng',
+      message: `Gán người thuê này vào phòng ${room?.name || this.roomIdInput()}?`,
+      confirmText: 'Gán phòng',
+    });
+    if (!ok) return;
+
+    await this.assignRoom();
+  }
+
+  private async assignRoom() {
+    this.errorMessage.set('');
     this.assigning.set(true);
+    this.confirm.setProcessing(true);
     try {
       await this.usersService.assignRoom(this.id(), this.roomIdInput());
       this.tenant.reload();
@@ -279,12 +299,28 @@ export class TenantDetailPage {
       this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Gán phòng thất bại.');
     } finally {
       this.assigning.set(false);
+      this.confirm.setProcessing(false);
     }
   }
 
-  async unassignRoom() {
+  /** Bấm "Thu hồi quyền sử dụng phòng" -> hỏi xác nhận trước khi gọi API. */
+  async submitUnassignRoom() {
+    this.errorMessage.set('');
+    const ok = await this.confirm.ask({
+      title: 'Xác nhận thu hồi phòng',
+      message: 'Bạn có chắc chắn muốn thu hồi quyền sử dụng phòng của người thuê này không?',
+      confirmText: 'Thu hồi phòng',
+      danger: true,
+    });
+    if (!ok) return;
+
+    await this.unassignRoom();
+  }
+
+  private async unassignRoom() {
     this.errorMessage.set('');
     this.unassigning.set(true);
+    this.confirm.setProcessing(true);
     try {
       await this.usersService.unassignRoom(this.id());
       this.tenant.reload();
@@ -293,14 +329,36 @@ export class TenantDetailPage {
       this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Trả phòng thất bại.');
     } finally {
       this.unassigning.set(false);
+      this.confirm.setProcessing(false);
     }
   }
 
-  async toggleActive() {
+  /** Bấm "Khóa tài khoản" / "Mở khóa tài khoản" -> hỏi xác nhận trước khi gọi API. */
+  async submitToggleActive() {
+    const current = this.tenant.value();
+    if (!current) return;
+    this.errorMessage.set('');
+
+    const willActivate = !current.is_active;
+    const ok = await this.confirm.ask({
+      title: willActivate ? 'Xác nhận mở khóa tài khoản' : 'Xác nhận khóa tài khoản',
+      message: willActivate
+        ? `Mở khóa tài khoản của ${current.full_name}? Người này sẽ có thể đăng nhập trở lại.`
+        : `Khóa tài khoản của ${current.full_name}? Người này sẽ không thể đăng nhập cho đến khi được mở khóa lại.`,
+      confirmText: willActivate ? 'Mở khóa' : 'Khóa tài khoản',
+      danger: !willActivate,
+    });
+    if (!ok) return;
+
+    await this.toggleActive();
+  }
+
+  private async toggleActive() {
     const current = this.tenant.value();
     if (!current) return;
     this.errorMessage.set('');
     this.togglingActive.set(true);
+    this.confirm.setProcessing(true);
     try {
       await this.usersService.update(this.id(), { is_active: !current.is_active });
       this.tenant.reload();
@@ -308,6 +366,7 @@ export class TenantDetailPage {
       this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Cập nhật trạng thái thất bại.');
     } finally {
       this.togglingActive.set(false);
+      this.confirm.setProcessing(false);
     }
   }
 }
