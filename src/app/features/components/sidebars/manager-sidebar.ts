@@ -75,7 +75,12 @@ interface NavItem {
       </nav>
 
       <div class="shrink-0 border-t border-[#EFE6CC] p-3">
-        <div class="flex items-center gap-3 rounded-xl px-2 py-2">
+        <a
+          routerLink="/profile"
+          routerLinkActive="bg-[#FFF6DC]"
+          (click)="mobileOpen.set(false)"
+          class="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors duration-200 hover:bg-[#FFF6DC]"
+        >
           @if (auth.currentUser()?.avatar_url) {
             <img
               [src]="auth.currentUser()?.avatar_url"
@@ -91,7 +96,10 @@ interface NavItem {
             <p class="truncate text-sm font-medium text-[#221D0F]">{{ auth.currentUser()?.full_name ?? 'Quản lý' }}</p>
             <p class="truncate text-xs text-[#8A8270]">Quản lý</p>
           </div>
-        </div>
+          <svg class="h-4 w-4 shrink-0 text-[#B8B096]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </a>
 
         <button
           type="button"
