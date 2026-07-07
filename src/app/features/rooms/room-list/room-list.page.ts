@@ -17,7 +17,14 @@ import gsap from 'gsap';
 import { UiBadge } from '../../../shared/ui/badge/badge';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RoomsService } from '../../../core/services/rooms.service';
-import { RoomStatus } from '../../../core/models';
+import {
+  Room,
+  RoomStatus,
+  ROOM_PAYMENT_STATUS_COLOR,
+  ROOM_PAYMENT_STATUS_LABEL,
+  ROOM_PAYMENT_OVERDUE_COLOR,
+  ROOM_PAYMENT_OVERDUE_LABEL,
+} from '../../../core/models';
 import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
@@ -109,6 +116,19 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
                 <option value="occupied">Đã thuê</option>
               </select>
             </div>
+
+            <div class="shrink-0">
+              <select
+                (change)="paymentFilter.set($any($event.target).value)"
+                class="rounded-full border border-[#EFE6CC] bg-[#FBF7ED]/50 px-4 py-2 text-sm text-[#221D0F] focus:border-[#FFC629] focus:bg-white focus:outline-none transition-all"
+              >
+                <option value="all">Tất cả tiền phòng tháng này</option>
+                <option value="unpaid">Chưa đóng tiền</option>
+                <option value="partial">Đóng một phần</option>
+                <option value="paid">Đã đóng tiền</option>
+                <option value="overdue">Quá hạn</option>
+              </select>
+            </div>
           </div>
 
           <!-- Content -->
@@ -163,6 +183,20 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
                       </span>
                       <span class="font-bold text-[#221D0F]">{{ room.monthly_rent | number }} ₫</span>
                     </div>
+
+                    @if (room.status === 'occupied') {
+                      <div class="flex items-center justify-between text-sm">
+                        <span class="flex items-center gap-1.5 text-[#8A8270]">
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-9 4h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                          </svg>
+                          Tiền phòng tháng này
+                        </span>
+                        <ui-badge [colorClass]="paymentBadgeColor(room)">
+                          {{ paymentBadgeLabel(room) }}
+                        </ui-badge>
+                      </div>
+                    }
                   </div>
                 </a>
               } @empty {
@@ -188,18 +222,44 @@ export class RoomListPage {
   // --- STATE TÌM KIẾM VÀ LỌC ---
   searchQuery = signal('');
   statusFilter = signal('all');
+  // 'all' | 'unpaid' | 'partial' | 'paid' | 'overdue'
+  // Lưu ý: 'overdue' không phải 1 RoomPaymentStatus thật ở BE (nó là cờ đi kèm
+  // unpaid/partial), nên lọc riêng bằng room.current_month_payment?.overdue.
+  paymentFilter = signal('all');
 
   filteredRooms = computed(() => {
     const list = this.rooms.value()?.data ?? [];
     const search = this.searchQuery().toLowerCase().trim();
     const status = this.statusFilter();
+    const payment = this.paymentFilter();
 
     return list.filter((r) => {
       const matchesSearch = !search || r.code.toLowerCase().includes(search);
       const matchesStatus = status === 'all' || r.status === status;
-      return matchesSearch && matchesStatus;
+      const matchesPayment =
+        payment === 'all' ||
+        (payment === 'overdue'
+          ? !!r.current_month_payment?.overdue
+          : r.current_month_payment?.status === payment);
+      return matchesSearch && matchesStatus && matchesPayment;
     });
   });
+
+  // Tình trạng đóng tiền phòng tháng này (ưu tiên hiển thị "Quá hạn" nếu
+  // overdue=true, bất kể status đang là unpaid hay partial).
+  paymentBadgeColor(room: Room): string {
+    if (room.current_month_payment?.overdue) {
+      return ROOM_PAYMENT_OVERDUE_COLOR;
+    }
+    return ROOM_PAYMENT_STATUS_COLOR[room.current_month_payment?.status ?? 'no_invoice'];
+  }
+
+  paymentBadgeLabel(room: Room): string {
+    if (room.current_month_payment?.overdue) {
+      return ROOM_PAYMENT_OVERDUE_LABEL;
+    }
+    return ROOM_PAYMENT_STATUS_LABEL[room.current_month_payment?.status ?? 'no_invoice'];
+  }
 
   // Refs cho animation
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');

@@ -76,9 +76,17 @@ interface NavItem {
 
       <div class="shrink-0 border-t border-slate-200/70 p-3">
         <div class="flex items-center gap-3 rounded-xl px-2 py-2">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-700 font-semibold text-sm">
-            {{ initials() }}
-          </div>
+          @if (auth.currentUser()?.avatar_url) {
+            <img
+              [src]="auth.currentUser()?.avatar_url"
+              alt=""
+              class="h-9 w-9 shrink-0 rounded-full object-cover border border-slate-200"
+            />
+          } @else {
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-700 font-semibold text-sm">
+              {{ initials() }}
+            </div>
+          }
           <div class="min-w-0 flex-1">
             <p class="truncate text-sm font-medium text-slate-900">{{ auth.currentUser()?.full_name ?? 'Người thuê' }}</p>
             <p class="truncate text-xs text-slate-400">Người thuê</p>

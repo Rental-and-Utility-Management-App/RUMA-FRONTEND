@@ -10,6 +10,7 @@ export interface UserResponse {
   role: Role;
   room_id?: string; 
   is_active: boolean;
+  avatar_url?: string;
   room?: Room; 
 }
 

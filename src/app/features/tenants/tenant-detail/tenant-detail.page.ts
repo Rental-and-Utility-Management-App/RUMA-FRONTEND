@@ -79,9 +79,17 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-6 border-b border-[#F1EBD8]">
                 <div class="flex items-center gap-4">
-                  <div class="flex h-16 w-16 items-center justify-center rounded-full bg-[#FBF7ED] text-2xl font-bold text-[#8A6200] border border-[#EFE6CC]">
-                    {{ t.full_name.charAt(0).toUpperCase() }}
-                  </div>
+                  @if (t.avatar_url) {
+                    <img
+                      [src]="t.avatar_url"
+                      alt=""
+                      class="h-16 w-16 shrink-0 rounded-full object-cover border border-[#EFE6CC]"
+                    />
+                  } @else {
+                    <div class="flex h-16 w-16 items-center justify-center rounded-full bg-[#FBF7ED] text-2xl font-bold text-[#8A6200] border border-[#EFE6CC]">
+                      {{ t.full_name.charAt(0).toUpperCase() }}
+                    </div>
+                  }
                   <div>
                     <h2 class="text-2xl font-bold text-[#221D0F]">{{ t.full_name }}</h2>
                     <p class="text-sm text-[#8A8270] mt-1">{{ t.phone }}</p>

@@ -122,9 +122,17 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                   <div class="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#FFC629]/15 transition-transform duration-500 group-hover:scale-150"></div>
                   
                   <div class="relative flex items-start gap-4 mb-5">
-                    <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#FBF7ED] text-xl font-bold text-[#8A6200] border border-[#F1EBD8]">
-                      {{ u.full_name.charAt(0).toUpperCase() }}
-                    </div>
+                    @if (u.avatar_url) {
+                      <img
+                        [src]="u.avatar_url"
+                        alt=""
+                        class="h-14 w-14 shrink-0 rounded-full object-cover border border-[#F1EBD8]"
+                      />
+                    } @else {
+                      <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[#FBF7ED] text-xl font-bold text-[#8A6200] border border-[#F1EBD8]">
+                        {{ u.full_name.charAt(0).toUpperCase() }}
+                      </div>
+                    }
                     
                     <div class="min-w-0 flex-1 pt-0.5">
                       <h3 class="text-base font-bold text-[#221D0F] truncate" [title]="u.full_name">{{ u.full_name }}</h3>

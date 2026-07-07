@@ -18,7 +18,13 @@ import { UiBadge } from '../../../shared/ui/badge/badge';
 import { AuthService } from '../../../core/auth/auth.service';
 import { RoomsService } from '../../../core/services/rooms.service';
 import { ContractsService } from '../../../core/services/contracts.service';
-import { RoomStatus } from '../../../core/models';
+import {
+  RoomStatus,
+  ROOM_PAYMENT_STATUS_COLOR,
+  ROOM_PAYMENT_STATUS_LABEL,
+  ROOM_PAYMENT_OVERDUE_COLOR,
+  ROOM_PAYMENT_OVERDUE_LABEL,
+} from '../../../core/models';
 import { DEPOSIT_STATUS_COLOR, DEPOSIT_STATUS_LABEL } from '../../../core/models/contract.model';
 import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
@@ -125,6 +131,43 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
                   </div>
                 }
               </div>
+
+              <!-- TÌNH TRẠNG ĐÓNG TIỀN PHÒNG THÁNG NÀY -->
+              @if (r.status === 'occupied') {
+                <div class="relative mb-8 pt-6 border-t border-[#F1EBD8]">
+                  <div class="flex items-center justify-between mb-3">
+                    <h3 class="text-sm font-bold text-[#221D0F]">Tiền phòng tháng này</h3>
+                    <ui-badge [colorClass]="paymentBadgeColor(r)">
+                      {{ paymentBadgeLabel(r) }}
+                    </ui-badge>
+                  </div>
+
+                  @if (r.current_month_payment && r.current_month_payment.status !== 'no_invoice') {
+                    <div class="flex flex-wrap items-center gap-x-6 gap-y-2 rounded-xl bg-[#FBF7ED] p-4 border border-[#EFE6CC]">
+                      <p class="text-sm text-[#8A8270]">
+                        Đã đóng:
+                        <span class="font-semibold text-[#221D0F]">{{ r.current_month_payment.paid_amount || 0 | number }} ₫</span>
+                        / {{ r.current_month_payment.total_amount || 0 | number }} ₫
+                      </p>
+                      @if (r.current_month_payment.due_date) {
+                        <p class="text-sm text-[#8A8270]">
+                          Hạn đóng: <span class="font-semibold text-[#221D0F]">{{ r.current_month_payment.due_date | date: 'dd/MM/yyyy' }}</span>
+                        </p>
+                      }
+                      @if (r.current_month_payment.invoice_id) {
+                        <a
+                          [routerLink]="['/invoices', r.current_month_payment.invoice_id]"
+                          class="text-sm font-semibold text-[#B8860B] hover:underline"
+                        >
+                          Xem hóa đơn &rarr;
+                        </a>
+                      }
+                    </div>
+                  } @else {
+                    <p class="text-sm text-[#8A8270]">Phòng này chưa có hóa đơn cho tháng hiện tại.</p>
+                  }
+                </div>
+              }
 
               <!-- HIỂN THỊ DANH SÁCH NGƯỜI ĐANG Ở TRONG PHÒNG -->
               @if (r.tenants && r.tenants.length > 0) {
@@ -250,6 +293,25 @@ export class RoomDetailPage {
   ROOM_STATUS_LABEL = ROOM_STATUS_LABEL;
   DEPOSIT_STATUS_COLOR = DEPOSIT_STATUS_COLOR;
   DEPOSIT_STATUS_LABEL = DEPOSIT_STATUS_LABEL;
+
+  // Tình trạng đóng tiền phòng tháng này (ưu tiên hiển thị "Quá hạn" nếu
+  // overdue=true, bất kể status đang là unpaid hay partial) - dùng chung
+  // constants với room-list.ts (core/models/room.model.ts).
+  paymentBadgeColor(room: { current_month_payment?: { status: string; overdue?: boolean } }): string {
+    if (room.current_month_payment?.overdue) {
+      return ROOM_PAYMENT_OVERDUE_COLOR;
+    }
+    const status = (room.current_month_payment?.status ?? 'no_invoice') as keyof typeof ROOM_PAYMENT_STATUS_COLOR;
+    return ROOM_PAYMENT_STATUS_COLOR[status];
+  }
+
+  paymentBadgeLabel(room: { current_month_payment?: { status: string; overdue?: boolean } }): string {
+    if (room.current_month_payment?.overdue) {
+      return ROOM_PAYMENT_OVERDUE_LABEL;
+    }
+    const status = (room.current_month_payment?.status ?? 'no_invoice') as keyof typeof ROOM_PAYMENT_STATUS_LABEL;
+    return ROOM_PAYMENT_STATUS_LABEL[status];
+  }
 
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');
   private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
