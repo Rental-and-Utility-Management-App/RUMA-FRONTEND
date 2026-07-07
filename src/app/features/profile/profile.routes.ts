@@ -3,6 +3,6 @@ import { Routes } from '@angular/router';
 export const PROFILE_ROUTES: Routes = [
   {
     path: '',
-    loadComponent: () => import('./profile.page').then((m) => m.ProfilePage),
+    loadComponent: () => import('./profile-detail/profile.page').then((m) => m.ProfilePage),
   },
 ];

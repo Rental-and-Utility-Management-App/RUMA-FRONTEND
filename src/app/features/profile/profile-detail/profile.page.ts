@@ -6,18 +6,20 @@ import {
   viewChild,
   afterNextRender,
   signal,
-  computed,
 } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import gsap from 'gsap';
 
-import { AuthService } from './../../core/auth/auth.service';
-import { TenantSidebar } from './../components/sidebars/tenant-sidebar';
-import { ManagerSidebar } from './../components/sidebars/manager-sidebar';
+import { AuthService } from '../../../core/auth/auth.service';
+import { ApiResponse } from '../../../core/models/api-response.model';
+import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
+import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
+import { ChangePasswordPage } from '../changepassword/changepassword.page';
+import { ConfirmService } from '../../../shared/ui/confirm/confirm';
+import { environment } from '../../../../environments/environment';
 
 // --- Kiểu dữ liệu tối thiểu cho hồ sơ, khớp với response của GET /api/auth/me ---
-// Chỉnh lại field cho đúng với BE thật nếu khác.
 interface ProfileMe {
   id: string;
   full_name: string;
@@ -33,7 +35,7 @@ interface ProfileMe {
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [TenantSidebar, ManagerSidebar],
+  imports: [TenantSidebar, ManagerSidebar, ChangePasswordPage],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
@@ -130,7 +132,7 @@ interface ProfileMe {
                       <button
                         type="button"
                         [disabled]="removingAvatar()"
-                        (click)="removeAvatar()"
+                        (click)="onRemoveAvatarClick()"
                         class="flex items-center gap-2 rounded-full border border-[#EFE6CC] bg-white px-4 py-2 text-sm font-semibold text-[#8A8270] transition hover:border-[#F4D9D2] hover:text-[#9A3412] disabled:opacity-50"
                       >
                         Gỡ ảnh
@@ -175,54 +177,9 @@ interface ProfileMe {
               </dl>
             </div>
 
-            <!-- Card đổi mật khẩu -->
-            <div #passwordCard class="rounded-3xl border border-[#EFE6CC] bg-white p-6 shadow-[0_2px_14px_rgba(34,29,15,0.05)] opacity-0">
-              <h3 class="text-base font-bold text-[#221D0F] mb-4">Đổi mật khẩu</h3>
-
-              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="sm:col-span-2">
-                  <label class="mb-1 block text-xs font-medium text-[#8A8270]">Mật khẩu hiện tại</label>
-                  <input
-                    type="password"
-                    [value]="oldPassword()"
-                    (input)="oldPassword.set($any($event.target).value)"
-                    class="w-full rounded-full border border-[#EFE6CC] bg-[#FBF7ED]/50 px-4 py-2 text-sm text-[#221D0F] focus:border-[#FFC629] focus:bg-white focus:outline-none transition-all"
-                  />
-                </div>
-                <div>
-                  <label class="mb-1 block text-xs font-medium text-[#8A8270]">Mật khẩu mới</label>
-                  <input
-                    type="password"
-                    [value]="newPassword()"
-                    (input)="newPassword.set($any($event.target).value)"
-                    class="w-full rounded-full border border-[#EFE6CC] bg-[#FBF7ED]/50 px-4 py-2 text-sm text-[#221D0F] focus:border-[#FFC629] focus:bg-white focus:outline-none transition-all"
-                  />
-                </div>
-                <div>
-                  <label class="mb-1 block text-xs font-medium text-[#8A8270]">Nhập lại mật khẩu mới</label>
-                  <input
-                    type="password"
-                    [value]="confirmPassword()"
-                    (input)="confirmPassword.set($any($event.target).value)"
-                    class="w-full rounded-full border border-[#EFE6CC] bg-[#FBF7ED]/50 px-4 py-2 text-sm text-[#221D0F] focus:border-[#FFC629] focus:bg-white focus:outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              @if (passwordMessage(); as msg) {
-                <p class="mt-3 text-sm" [class.text-[#166534]]="!passwordError()" [class.text-[#9A3412]]="passwordError()">{{ msg }}</p>
-              }
-
-              <div class="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  [disabled]="!canSubmitPassword() || changingPassword()"
-                  (click)="changePassword()"
-                  class="flex items-center gap-2 rounded-full bg-[#FFC629] px-5 py-2.5 text-sm font-semibold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764] disabled:opacity-50 disabled:hover:bg-[#FFC629]"
-                >
-                  {{ changingPassword() ? 'Đang lưu...' : 'Lưu mật khẩu mới' }}
-                </button>
-              </div>
+            <!-- Card đổi mật khẩu (component riêng) -->
+            <div #passwordCard class="opacity-0">
+              <app-change-password />
             </div>
           }
         </div>
@@ -233,6 +190,7 @@ interface ProfileMe {
 export class ProfilePage {
   auth = inject(AuthService);
   private http = inject(HttpClient);
+  private confirm = inject(ConfirmService);
 
   // --- Hồ sơ ---
   profile = signal<ProfileMe | null>(null);
@@ -245,22 +203,6 @@ export class ProfilePage {
   removingAvatar = signal(false);
   avatarMessage = signal<string | null>(null);
   avatarError = signal(false);
-
-  // --- Đổi mật khẩu ---
-  oldPassword = signal('');
-  newPassword = signal('');
-  confirmPassword = signal('');
-  changingPassword = signal(false);
-  passwordMessage = signal<string | null>(null);
-  passwordError = signal(false);
-
-  canSubmitPassword = computed(() => {
-    return (
-      this.oldPassword().trim().length > 0 &&
-      this.newPassword().trim().length >= 6 &&
-      this.newPassword() === this.confirmPassword()
-    );
-  });
 
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');
   private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
@@ -303,11 +245,15 @@ export class ProfilePage {
     this.loadingProfile.set(true);
     this.loadError.set(null);
     try {
-      const res = await firstValueFrom(this.http.get<ProfileMe>('/api/auth/me'));
-      this.profile.set(res);
+      const res = await firstValueFrom(this.http.get<ApiResponse<ProfileMe>>(`${environment.apiUrl}/auth/me`));
+      if (!res.success || !res.data) {
+        throw new Error(res.message || 'Không tải được hồ sơ');
+      }
+      this.profile.set(res.data);
       this.animateCards();
-    } catch {
-      this.loadError.set('Không tải được hồ sơ. Vui lòng thử lại.');
+    } catch (error: any) {
+      console.error('Load profile failed:', error);
+      this.loadError.set(error?.error?.message || 'Không tải được hồ sơ. Vui lòng thử lại.');
     } finally {
       this.loadingProfile.set(false);
     }
@@ -319,7 +265,6 @@ export class ProfilePage {
     const file = input.files?.[0];
     if (!file) return;
 
-    // Preview tức thời trong lúc upload
     const reader = new FileReader();
     reader.onload = () => this.avatarPreview.set(reader.result as string);
     reader.readAsDataURL(file);
@@ -333,9 +278,12 @@ export class ProfilePage {
       formData.append('avatar', file);
 
       const res = await firstValueFrom(
-        this.http.post<{ avatarUrl?: string; avatar_url?: string }>('/api/users/me/avatar', formData),
+        this.http.post<ApiResponse<{ avatarUrl?: string; avatar_url?: string }>>(`${environment.apiUrl}/users/me/avatar`, formData),
       );
-      const newUrl = res.avatarUrl ?? res.avatar_url ?? this.avatarPreview() ?? undefined;
+      if (!res.success || !res.data) {
+        throw new Error(res.message || 'Tải ảnh lên thất bại');
+      }
+      const newUrl = res.data.avatarUrl ?? res.data.avatar_url ?? this.avatarPreview() ?? undefined;
 
       this.profile.update((p) => (p ? { ...p, avatar_url: newUrl ?? p.avatar_url } : p));
       this.avatarMessage.set('Cập nhật ảnh đại diện thành công.');
@@ -349,14 +297,32 @@ export class ProfilePage {
     }
   }
 
+  // --- Bấm "Gỡ ảnh" -> hỏi xác nhận trước ---
+  async onRemoveAvatarClick(): Promise<void> {
+    const ok = await this.confirm.ask({
+      title: 'Gỡ ảnh đại diện',
+      message: 'Bạn có chắc chắn muốn gỡ ảnh đại diện hiện tại? Thao tác này không thể hoàn tác.',
+      confirmText: 'Gỡ ảnh',
+      cancelText: 'Hủy bỏ',
+      danger: true,
+    });
+    if (!ok) return;
+
+    await this.removeAvatar();
+  }
+
   // --- Gỡ avatar hiện tại (DELETE /api/users/me/avatar) ---
-  async removeAvatar(): Promise<void> {
+  private async removeAvatar(): Promise<void> {
     this.removingAvatar.set(true);
+    this.confirm.setProcessing(true);
     this.avatarMessage.set(null);
     this.avatarError.set(false);
 
     try {
-      await firstValueFrom(this.http.delete('/api/users/me/avatar'));
+      const res = await firstValueFrom(this.http.delete<ApiResponse<null>>(`${environment.apiUrl}/users/me/avatar`));
+      if (!res.success) {
+        throw new Error(res.message || 'Gỡ ảnh thất bại');
+      }
       this.profile.update((p) => (p ? { ...p, avatar_url: null } : p));
       this.avatarPreview.set(null);
       this.avatarMessage.set('Đã gỡ ảnh đại diện.');
@@ -365,33 +331,7 @@ export class ProfilePage {
       this.avatarMessage.set('Gỡ ảnh thất bại. Vui lòng thử lại.');
     } finally {
       this.removingAvatar.set(false);
-    }
-  }
-
-  // --- Đổi mật khẩu (PUT /api/auth/change-password) ---
-  async changePassword(): Promise<void> {
-    if (!this.canSubmitPassword()) return;
-
-    this.changingPassword.set(true);
-    this.passwordMessage.set(null);
-    this.passwordError.set(false);
-
-    try {
-      await firstValueFrom(
-        this.http.put('/api/auth/change-password', {
-          old_password: this.oldPassword(),
-          new_password: this.newPassword(),
-        }),
-      );
-      this.passwordMessage.set('Đổi mật khẩu thành công.');
-      this.oldPassword.set('');
-      this.newPassword.set('');
-      this.confirmPassword.set('');
-    } catch (err: any) {
-      this.passwordError.set(true);
-      this.passwordMessage.set(err?.error?.message || 'Đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu hiện tại.');
-    } finally {
-      this.changingPassword.set(false);
+      this.confirm.setProcessing(false);
     }
   }
 }
