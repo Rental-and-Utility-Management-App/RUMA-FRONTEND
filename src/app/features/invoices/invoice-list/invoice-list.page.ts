@@ -15,6 +15,8 @@ import { DecimalPipe } from '@angular/common';
 import gsap from 'gsap';
 
 import { UiBadge } from '../../../shared/ui/badge/badge';
+import { UiInput } from '../../../shared/ui/input/input';
+import { UiModal } from '../../../shared/ui/modal/modal';
 import { AuthService } from '../../../core/auth/auth.service';
 import { InvoicesService } from '../../../core/services/invoices.service';
 import { RoomsService } from '../../../core/services/rooms.service';
@@ -25,7 +27,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 @Component({
   selector: 'app-invoice-list',
   standalone: true,
-  imports: [RouterLink, UiBadge, DecimalPipe, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, UiBadge, UiInput, UiModal, DecimalPipe, TenantSidebar, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
@@ -46,19 +48,48 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
       <div class="relative md:pl-64">
         <div class="max-w-5xl mx-auto p-6 md:p-10">
 
-          <div #hero class="mb-8 opacity-0">
-            <p class="text-sm font-medium text-[#B8860B] mb-1">Quản lý thu chi</p>
-            <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-[#221D0F]">
-              Danh sách
-              <span class="relative inline-block">
-                hóa đơn
-                <svg class="absolute -bottom-1 left-0 w-full" height="8" viewBox="0 0 100 8" preserveAspectRatio="none">
-                  <path d="M0 5 Q 50 -2 100 5" stroke="#FFC629" stroke-width="5" fill="none" stroke-linecap="round" />
+          <div #hero class="mb-8 opacity-0 flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="text-sm font-medium text-[#B8860B] mb-1">Quản lý thu chi</p>
+              <h1 class="text-3xl md:text-4xl font-bold tracking-tight text-[#221D0F]">
+                Danh sách
+                <span class="relative inline-block">
+                  hóa đơn
+                  <svg class="absolute -bottom-1 left-0 w-full" height="8" viewBox="0 0 100 8" preserveAspectRatio="none">
+                    <path d="M0 5 Q 50 -2 100 5" stroke="#FFC629" stroke-width="5" fill="none" stroke-linecap="round" />
+                  </svg>
+                </span>
+              </h1>
+              <p class="mt-3 text-[#8A8270]">Theo dõi các khoản thu tiền phòng, điện nước và dịch vụ hàng tháng.</p>
+            </div>
+
+            @if (auth.isManager()) {
+              <button
+                (click)="openGenerateModal()"
+                class="flex items-center gap-2 rounded-full bg-[#221D0F] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-black shrink-0"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
-              </span>
-            </h1>
-            <p class="mt-3 text-[#8A8270]">Theo dõi các khoản thu tiền phòng, điện nước và dịch vụ hàng tháng.</p>
+                Tạo hóa đơn nháp đầu tháng
+              </button>
+            }
           </div>
+
+          @if (auth.isManager() && draftCount() > 0) {
+            <button
+              (click)="statusFilter.set('draft')"
+              class="mb-6 w-full flex items-center justify-between gap-3 rounded-2xl border border-[#FFC629]/50 bg-[#FFF8E1] px-5 py-3.5 text-left transition hover:bg-[#FFF3CD]"
+            >
+              <div class="flex items-center gap-3">
+                <span class="flex h-8 w-8 items-center justify-center rounded-full bg-[#FFC629] text-[#221D0F] font-bold text-sm shrink-0">{{ draftCount() }}</span>
+                <span class="text-sm font-medium text-[#8A6200]">Có hóa đơn nháp đang chờ điền chỉ số điện/nước — bấm để xem ngay</span>
+              </div>
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-[#8A6200] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          }
 
           <div #filterBar class="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-[#EFE6CC] bg-white p-4 shadow-[0_2px_10px_rgba(34,29,15,0.02)] opacity-0">
             <div class="relative flex-1 min-w-60">
@@ -82,6 +113,9 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 class="rounded-full border border-[#EFE6CC] bg-[#FBF7ED]/50 px-4 py-2 text-sm text-[#221D0F] focus:border-[#FFC629] focus:bg-white focus:outline-none transition-all"
               >
                 <option value="all">Tất cả trạng thái</option>
+                @if (auth.isManager()) {
+                  <option value="draft">Nháp - chờ xác nhận</option>
+                }
                 <option value="unpaid">Chưa thanh toán</option>
                 <option value="partial">Thanh toán một phần</option>
                 <option value="paid">Đã thanh toán đủ</option>
@@ -104,7 +138,10 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 <a
                   #card
                   [routerLink]="['/invoices', inv.id]"
-                  class="group relative flex flex-col rounded-3xl border border-[#EFE6CC] bg-white p-6 shadow-[0_2px_14px_rgba(34,29,15,0.05)] opacity-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(255,198,41,0.25)] overflow-hidden h-full"
+                  class="group relative flex flex-col rounded-3xl border bg-white p-6 shadow-[0_2px_14px_rgba(34,29,15,0.05)] opacity-0 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(255,198,41,0.25)] overflow-hidden h-full"
+                  [class.border-dashed]="inv.status === 'draft'"
+                  [class.border-[#D8CBA0]]="inv.status === 'draft'"
+                  [class.border-[#EFE6CC]]="inv.status !== 'draft'"
                 >
                   <div class="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#FFC629]/15 transition-transform duration-500 group-hover:scale-150"></div>
 
@@ -122,12 +159,34 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                     </div>
                   </div>
 
-                  <div class="relative mt-auto pt-4 border-t border-[#F1EBD8] flex items-center justify-between">
-                    <span class="font-bold text-xl text-[#221D0F]">{{ inv.total_amount | number }} ₫</span>
-                    <ui-badge [colorClass]="INVOICE_STATUS_COLOR[inv.status]">
-                      {{ INVOICE_STATUS_LABEL[inv.status] }}
+                  @if (inv.status === 'draft') {
+                    <div class="relative mb-4 rounded-xl bg-[#FBF7ED] border border-dashed border-[#D8CBA0] p-3 text-xs text-[#8A8270]">
+                      Chưa có chỉ số điện/nước — tổng tiền sẽ được tính sau khi xác nhận.
+                    </div>
+                  }
+
+                  <div class="relative mt-auto pt-4 border-t border-[#F1EBD8] flex items-center justify-between gap-2">
+                    <span class="font-bold text-xl text-[#221D0F]">
+                      @if (inv.status === 'draft') {
+                        —
+                      } @else {
+                        {{ inv.total_amount | number }} ₫
+                      }
+                    </span>
+                    <ui-badge [colorClass]="statusColor(inv.status)">
+                      {{ statusLabel(inv.status) }}
                     </ui-badge>
                   </div>
+
+                  @if (auth.isManager() && inv.status === 'draft') {
+                    <button
+                      type="button"
+                      (click)="$event.preventDefault(); $event.stopPropagation(); openConfirmModal(inv)"
+                      class="relative mt-3 w-full rounded-full bg-[#FFC629] px-4 py-2 text-xs font-bold text-[#221D0F] transition hover:bg-[#FFD764]"
+                    >
+                      Xác nhận chỉ số điện/nước
+                    </button>
+                  }
                 </a>
               } @empty {
                 <div class="col-span-full rounded-3xl border border-[#EFE6CC] bg-white p-10 text-center shadow-sm">
@@ -139,6 +198,70 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
         </div>
       </div>
     </div>
+
+    <!-- Modal: Tạo hóa đơn nháp đầu tháng -->
+    <ui-modal [open]="generateModalOpen()" title="Tạo hóa đơn nháp đầu tháng" (closeRequested)="closeGenerateModal()">
+      <div class="flex flex-col gap-4">
+        <p class="text-sm text-[#6B6455]">
+          Hệ thống sẽ tự tạo hóa đơn nháp cho mọi phòng đang có hợp đồng hiệu lực chưa có hóa đơn tháng này.
+          Tiền phòng và phí quản lý được tính sẵn, chỉ còn thiếu chỉ số điện/nước — xác nhận riêng từng hóa đơn sau.
+        </p>
+        <div class="grid grid-cols-2 gap-3">
+          <ui-input label="Tháng" type="number" [(value)]="generateMonth" />
+          <ui-input label="Năm" type="number" [(value)]="generateYear" />
+        </div>
+
+        @if (generateError()) {
+          <p class="text-sm text-[#9A3412]">{{ generateError() }}</p>
+        }
+
+        @if (generateResult(); as result) {
+          <div class="rounded-xl bg-[#E5F5E9] border border-green-200 p-4 text-sm text-green-800">
+            Đã tạo mới <span class="font-bold">{{ result.created }}</span> hóa đơn,
+            bỏ qua <span class="font-bold">{{ result.skipped }}</span> phòng đã có hóa đơn,
+            @if (result.errors && result.errors.length > 0) {
+              lỗi <span class="font-bold">{{ result.errors.length }}</span> phòng.
+            } @else {
+              không có lỗi nào.
+            }
+          </div>
+        }
+
+        <div class="flex gap-2 justify-end pt-2">
+          <button type="button" (click)="closeGenerateModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Đóng</button>
+          <button type="button" (click)="onGenerateDraft()" [disabled]="generating()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
+            {{ generating() ? 'Đang tạo...' : 'Tạo hóa đơn nháp' }}
+          </button>
+        </div>
+      </div>
+    </ui-modal>
+
+    <!-- Modal: Xác nhận hóa đơn nháp (điền chỉ số điện/nước) -->
+    <ui-modal [open]="confirmModalOpen()" title="Xác nhận hóa đơn nháp" (closeRequested)="closeConfirmModal()">
+      @if (confirmingInvoice(); as inv) {
+        <div class="flex flex-col gap-4">
+          <p class="text-sm text-[#6B6455]">
+            Nhập chỉ số điện/nước thực tế cho phòng <span class="font-bold text-[#221D0F]">{{ roomLabel(inv) }}</span>,
+            kỳ {{ inv.month }}/{{ inv.year }}. Hệ thống sẽ tự tính lại tổng tiền và chuyển hóa đơn sang trạng thái chưa thanh toán.
+          </p>
+          <div class="grid grid-cols-2 gap-3">
+            <ui-input label="Chỉ số điện mới (*)" type="number" [(value)]="confirmElectricNew" />
+            <ui-input label="Chỉ số nước mới (*)" type="number" [(value)]="confirmWaterNew" />
+          </div>
+
+          @if (confirmError()) {
+            <p class="text-sm text-[#9A3412]">{{ confirmError() }}</p>
+          }
+
+          <div class="flex gap-2 justify-end pt-2">
+            <button type="button" (click)="closeConfirmModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy bỏ</button>
+            <button type="button" (click)="onConfirmDraft()" [disabled]="confirming()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
+              {{ confirming() ? 'Đang xử lý...' : 'Xác nhận & tính tiền' }}
+            </button>
+          </div>
+        </div>
+      }
+    </ui-modal>
   `,
 })
 export class InvoiceListPage {
@@ -159,6 +282,22 @@ export class InvoiceListPage {
 
   INVOICE_STATUS_COLOR = INVOICE_STATUS_COLOR;
   INVOICE_STATUS_LABEL = INVOICE_STATUS_LABEL;
+
+  // ---- Modal: tạo hóa đơn nháp đầu tháng ----
+  generateModalOpen = signal(false);
+  generateMonth = signal(String(new Date().getMonth() + 1));
+  generateYear = signal(String(new Date().getFullYear()));
+  generating = signal(false);
+  generateError = signal('');
+  generateResult = signal<{ created: number; skipped: number; errors: string[] } | null>(null);
+
+  // ---- Modal: xác nhận hóa đơn nháp ----
+  confirmModalOpen = signal(false);
+  confirmingInvoice = signal<any>(null);
+  confirmElectricNew = signal('0');
+  confirmWaterNew = signal('0');
+  confirming = signal(false);
+  confirmError = signal('');
 
   // Map room_id -> Room để tra cứu O(1) thay vì .find() trong vòng lặp template
   private roomsMap = computed(() => {
@@ -187,11 +326,90 @@ export class InvoiceListPage {
     });
   });
 
+  // Số hóa đơn nháp đang chờ xác nhận, dùng cho banner nhắc nhở manager
+  draftCount = computed(() => {
+    const list = this.invoices.value()?.data ?? [];
+    return list.filter((inv: any) => inv.status === 'draft').length;
+  });
+
   // Trả về mã phòng theo room_id của invoice.
   // Fallback: nếu invoice đã có sẵn room_code (denormalized) hoặc chỉ có room_id thô.
   roomLabel(inv: any): string {
     const room = this.roomsMap().get(inv.room_id);
     return room?.code ?? inv.room_code ?? inv.room_id ?? '—';
+  }
+
+  // Nhãn/màu trạng thái - xử lý riêng 'draft' để không phụ thuộc việc
+  // INVOICE_STATUS_LABEL/COLOR đã có sẵn key này hay chưa.
+  statusLabel(status: string): string {
+    if (status === 'draft') return 'Nháp';
+    return (this.INVOICE_STATUS_LABEL as any)[status] ?? status;
+  }
+
+  statusColor(status: string): string {
+    if (status === 'draft') return 'bg-[#F1EBD8] text-[#8A6200]';
+    return (this.INVOICE_STATUS_COLOR as any)[status] ?? 'bg-gray-100 text-gray-600';
+  }
+
+  openGenerateModal() {
+    this.generateError.set('');
+    this.generateResult.set(null);
+    this.generateModalOpen.set(true);
+  }
+
+  closeGenerateModal() {
+    this.generateModalOpen.set(false);
+  }
+
+  async onGenerateDraft() {
+    this.generateError.set('');
+    this.generateResult.set(null);
+    this.generating.set(true);
+    try {
+      const result = await this.invoicesService.generateDraft({
+        month: Number(this.generateMonth()),
+        year: Number(this.generateYear()),
+      });
+      this.generateResult.set(result);
+      this.invoices.reload();
+    } catch (err: any) {
+      this.generateError.set(err?.error?.message ?? err?.message ?? 'Tạo hóa đơn nháp thất bại.');
+    } finally {
+      this.generating.set(false);
+    }
+  }
+
+  openConfirmModal(inv: any) {
+    this.confirmError.set('');
+    this.confirmingInvoice.set(inv);
+    this.confirmElectricNew.set(String(inv.electric_old ?? 0));
+    this.confirmWaterNew.set(String(inv.water_old ?? 0));
+    this.confirmModalOpen.set(true);
+  }
+
+  closeConfirmModal() {
+    this.confirmModalOpen.set(false);
+    this.confirmingInvoice.set(null);
+  }
+
+  async onConfirmDraft() {
+    const inv = this.confirmingInvoice();
+    if (!inv) return;
+
+    this.confirmError.set('');
+    this.confirming.set(true);
+    try {
+      await this.invoicesService.confirmDraft(inv.id, {
+        electric_new: Number(this.confirmElectricNew()),
+        water_new: Number(this.confirmWaterNew()),
+      });
+      this.invoices.reload();
+      this.closeConfirmModal();
+    } catch (err: any) {
+      this.confirmError.set(err?.error?.message ?? err?.message ?? 'Xác nhận hóa đơn thất bại.');
+    } finally {
+      this.confirming.set(false);
+    }
   }
 
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');

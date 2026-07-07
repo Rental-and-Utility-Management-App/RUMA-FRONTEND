@@ -1,4 +1,4 @@
-export type InvoiceStatus = 'unpaid' | 'partial' | 'paid' | 'cancelled';
+export type InvoiceStatus = 'draft' | 'unpaid' | 'partial' | 'paid' | 'cancelled';
 
 export interface Invoice {
   id: string;
@@ -31,6 +31,7 @@ export interface Invoice {
 }
 
 export const INVOICE_STATUS_COLOR: Record<InvoiceStatus, string> = {
+  draft: 'bg-[#F1EBD8] text-[#8A6200]',
   unpaid: 'bg-red-100 text-red-700',
   partial: 'bg-yellow-100 text-yellow-700',
   paid: 'bg-green-100 text-green-700',
@@ -38,6 +39,7 @@ export const INVOICE_STATUS_COLOR: Record<InvoiceStatus, string> = {
 };
 
 export const INVOICE_STATUS_LABEL: Record<InvoiceStatus, string> = {
+  draft: 'Nháp',
   unpaid: 'Chưa thanh toán',
   partial: 'Thanh toán một phần',
   paid: 'Đã thanh toán',

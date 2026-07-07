@@ -36,6 +36,25 @@ export interface QrCodeInfo {
   qr_code_url: string;
 }
 
+/** Payload cho POST /invoices/generate-draft - bỏ trống thì BE tự dùng tháng/năm hiện tại */
+export interface GenerateDraftInvoicesPayload {
+  month?: number;
+  year?: number;
+}
+
+/** Response của POST /invoices/generate-draft (khớp scheduler.GenerateMonthlyDraftInvoices) */
+export interface GenerateDraftInvoicesResult {
+  created: number;
+  skipped: number;
+  errors: string[];
+}
+
+/** Payload cho PUT /invoices/:id/confirm - điền chỉ số điện/nước thật cho hóa đơn draft */
+export interface ConfirmDraftInvoicePayload {
+  electric_new: number;
+  water_new: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class InvoicesService {
   private http = inject(HttpClient);
@@ -86,6 +105,32 @@ export class InvoicesService {
       this.http.get<ApiResponse<QrCodeInfo>>(`${BASE}/${id}/qr-code`)
     );
     if (!res.success || !res.data) throw new Error(res.message || 'Không tạo được mã QR');
+    return res.data;
+  }
+
+  /**
+   * Tạo hóa đơn nháp (status='draft') cho mọi phòng đang có hợp đồng active
+   * chưa có hóa đơn tháng/năm chỉ định (mặc định tháng/năm hiện tại nếu bỏ
+   * trống). Dùng chung logic với cron job hàng ngày (xem internal/scheduler
+   * bên BE) - manager có thể chạy tay qua nút "Tạo hóa đơn nháp đầu tháng".
+   */
+  async generateDraft(payload: GenerateDraftInvoicesPayload = {}): Promise<GenerateDraftInvoicesResult> {
+    const res = await firstValueFrom(
+      this.http.post<ApiResponse<GenerateDraftInvoicesResult>>(`${BASE}/generate-draft`, payload)
+    );
+    if (!res.success || !res.data) throw new Error(res.message || 'Tạo hóa đơn nháp thất bại');
+    return res.data;
+  }
+
+  /**
+   * Điền chỉ số điện/nước thật cho 1 hóa đơn đang ở trạng thái draft, hệ
+   * thống tự tính lại total_amount và chuyển hóa đơn sang unpaid.
+   */
+  async confirmDraft(id: string, payload: ConfirmDraftInvoicePayload): Promise<Invoice> {
+    const res = await firstValueFrom(
+      this.http.put<ApiResponse<Invoice>>(`${BASE}/${id}/confirm`, payload)
+    );
+    if (!res.success || !res.data) throw new Error(res.message || 'Xác nhận hóa đơn thất bại');
     return res.data;
   }
 }
