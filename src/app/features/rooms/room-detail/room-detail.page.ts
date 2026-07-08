@@ -179,9 +179,17 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
                         [routerLink]="['/tenants', tenant.id]"
                         class="group flex items-center gap-3 rounded-xl bg-[#FBF7ED] p-3 border border-[#EFE6CC] transition-all hover:bg-white hover:border-[#FFC629] hover:shadow-sm"
                       >
-                        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#8A6200] shadow-sm border border-[#EFE6CC] group-hover:bg-[#FFC629] group-hover:text-[#221D0F] transition-colors">
-                          {{ tenant.full_name?.charAt(0)?.toUpperCase() || 'T' }}
-                        </div>
+                        @if (tenant.avatar_url) {
+                          <img
+                            [src]="tenant.avatar_url"
+                            alt=""
+                            class="h-10 w-10 shrink-0 rounded-full object-cover border border-[#EFE6CC]"
+                          />
+                        } @else {
+                          <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-sm font-bold text-[#8A6200] shadow-sm border border-[#EFE6CC] group-hover:bg-[#FFC629] group-hover:text-[#221D0F] transition-colors">
+                            {{ tenant.full_name?.charAt(0)?.toUpperCase() || 'T' }}
+                          </div>
+                        }
                         <div class="min-w-0 flex-1">
                           <p class="text-sm font-bold text-[#221D0F] truncate" [title]="tenant.full_name">{{ tenant.full_name }}</p>
                           <p class="text-xs text-[#8A8270] truncate">{{ tenant.phone }}</p>
