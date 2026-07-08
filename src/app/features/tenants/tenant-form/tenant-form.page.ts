@@ -15,6 +15,7 @@ import { UsersService } from '../../../core/services/users.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
+import { ToastService } from '../../../shared/ui/toast/toast';
 
 @Component({
   selector: 'app-tenant-form',
@@ -62,15 +63,6 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 <ui-input class="block w-full" label="Mật khẩu tạm (*)" type="password" [(value)]="password" />
               </div>
 
-              @if (errorMessage()) {
-                <div class="mb-6 flex items-center gap-3 rounded-xl bg-[#F4D9D2] p-4 text-sm font-medium text-[#9A3412]">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p>{{ errorMessage() }}</p>
-                </div>
-              }
-
               <div class="flex flex-wrap items-center gap-3 pt-2">
                 <button type="submit" [disabled]="saving()" class="flex items-center justify-center gap-2 rounded-full bg-[#FFC629] px-8 py-3 text-sm font-bold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764] disabled:opacity-60 disabled:cursor-not-allowed">
                   @if (saving()) {
@@ -95,13 +87,13 @@ export class TenantFormPage {
   router = inject(Router);
   auth = inject(AuthService);
   private usersService = inject(UsersService);
+  private toast = inject(ToastService);
 
   fullName = signal('');
   phone = signal('');
   email = signal('');
   password = signal('');
   saving = signal(false);
-  errorMessage = signal('');
 
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');
   private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
@@ -127,7 +119,6 @@ export class TenantFormPage {
 
   async onSubmit(event: Event) {
     event.preventDefault();
-    this.errorMessage.set('');
     this.saving.set(true);
     try {
       await this.usersService.create({
@@ -137,9 +128,10 @@ export class TenantFormPage {
         email: this.email() || undefined,
       });
       this.usersService.usersResource.reload();
+      this.toast.success('Tạo tài khoản thành công.');
       this.router.navigate(['/tenants']);
     } catch (err: any) {
-      this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Tạo tài khoản thất bại.');
+      this.toast.error(err?.error?.message ?? err?.message ?? 'Tạo tài khoản thất bại.');
     } finally {
       this.saving.set(false);
     }

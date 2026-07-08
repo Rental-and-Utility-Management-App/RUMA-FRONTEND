@@ -16,6 +16,7 @@ import gsap from 'gsap';
 
 import { UiBadge } from '../../../shared/ui/badge/badge';
 import { ConfirmService } from '../../../shared/ui/confirm/confirm';
+import { ToastService } from '../../../shared/ui/toast/toast';
 import { UsersService } from '../../../core/services/users.service';
 import { RoomsService } from '../../../core/services/rooms.service';
 import { Room } from '../../../core/models';
@@ -181,11 +182,6 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 </button>
               </div>
 
-              @if (errorMessage()) {
-                <div class="mt-6 flex items-center gap-3 rounded-xl bg-[#F4D9D2] p-4 text-sm font-medium text-[#9A3412]">
-                  <p>{{ errorMessage() }}</p>
-                </div>
-              }
             </div>
           }
         </div>
@@ -200,6 +196,7 @@ export class TenantDetailPage {
   private usersService = inject(UsersService);
   private roomsService = inject(RoomsService);
   private confirm = inject(ConfirmService);
+  private toast = inject(ToastService);
 
   tenant = resource({
     params: () => ({ id: this.id() }),
@@ -227,7 +224,6 @@ export class TenantDetailPage {
   assigning = signal(false);
   unassigning = signal(false);
   togglingActive = signal(false);
-  errorMessage = signal('');
 
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');
   private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
@@ -279,7 +275,6 @@ export class TenantDetailPage {
   /** Bấm "Gán phòng" -> hỏi xác nhận qua ConfirmService trước khi gọi API. */
   async submitAssignRoom() {
     if (!this.roomIdInput()) return;
-    this.errorMessage.set('');
 
     const room = this.availableRooms().find((r) => r.id === this.roomIdInput());
     const ok = await this.confirm.ask({
@@ -293,7 +288,6 @@ export class TenantDetailPage {
   }
 
   private async assignRoom() {
-    this.errorMessage.set('');
     this.assigning.set(true);
     this.confirm.setProcessing(true);
     try {
@@ -301,8 +295,9 @@ export class TenantDetailPage {
       this.tenant.reload();
       this.rooms.reload();
       this.roomIdInput.set('');
+      this.toast.success('Gán phòng thành công.');
     } catch (err: any) {
-      this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Gán phòng thất bại.');
+      this.toast.error(err?.error?.message ?? err?.message ?? 'Gán phòng thất bại.');
     } finally {
       this.assigning.set(false);
       this.confirm.setProcessing(false);
@@ -311,7 +306,6 @@ export class TenantDetailPage {
 
   /** Bấm "Thu hồi quyền sử dụng phòng" -> hỏi xác nhận trước khi gọi API. */
   async submitUnassignRoom() {
-    this.errorMessage.set('');
     const ok = await this.confirm.ask({
       title: 'Xác nhận thu hồi phòng',
       message: 'Bạn có chắc chắn muốn thu hồi quyền sử dụng phòng của người thuê này không?',
@@ -324,15 +318,15 @@ export class TenantDetailPage {
   }
 
   private async unassignRoom() {
-    this.errorMessage.set('');
     this.unassigning.set(true);
     this.confirm.setProcessing(true);
     try {
       await this.usersService.unassignRoom(this.id());
       this.tenant.reload();
       this.rooms.reload();
+      this.toast.success('Trả phòng thành công.');
     } catch (err: any) {
-      this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Trả phòng thất bại.');
+      this.toast.error(err?.error?.message ?? err?.message ?? 'Trả phòng thất bại.');
     } finally {
       this.unassigning.set(false);
       this.confirm.setProcessing(false);
@@ -343,7 +337,6 @@ export class TenantDetailPage {
   async submitToggleActive() {
     const current = this.tenant.value();
     if (!current) return;
-    this.errorMessage.set('');
 
     const willActivate = !current.is_active;
     const ok = await this.confirm.ask({
@@ -362,14 +355,14 @@ export class TenantDetailPage {
   private async toggleActive() {
     const current = this.tenant.value();
     if (!current) return;
-    this.errorMessage.set('');
     this.togglingActive.set(true);
     this.confirm.setProcessing(true);
     try {
       await this.usersService.update(this.id(), { is_active: !current.is_active });
       this.tenant.reload();
+      this.toast.success(current.is_active ? 'Đã khóa tài khoản.' : 'Đã mở khóa tài khoản.');
     } catch (err: any) {
-      this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Cập nhật trạng thái thất bại.');
+      this.toast.error(err?.error?.message ?? err?.message ?? 'Cập nhật trạng thái thất bại.');
     } finally {
       this.togglingActive.set(false);
       this.confirm.setProcessing(false);

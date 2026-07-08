@@ -18,6 +18,7 @@ import { RoomsService } from '../../../core/services/rooms.service';
 import { AuthService } from '../../../core/auth/auth.service';
 import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
+import { ToastService } from '../../../shared/ui/toast/toast';
 
 @Component({
   selector: 'app-room-form',
@@ -111,16 +112,6 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 <ui-input class="block w-full" label="Ghi chú thêm" [(value)]="note" />
               </div>
 
-              <!-- Error Message -->
-              @if (errorMessage()) {
-                <div class="mb-6 flex items-center gap-3 rounded-xl bg-[#F4D9D2] p-4 text-sm font-medium text-[#9A3412]">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p>{{ errorMessage() }}</p>
-                </div>
-              }
-
               <!-- Buttons -->
               <div class="flex flex-wrap items-center gap-3 pt-2">
                 <button
@@ -161,6 +152,7 @@ export class RoomFormPage {
   router = inject(Router);
   auth = inject(AuthService); // Inject thêm để check role hiển thị Sidebar
   private roomsService = inject(RoomsService);
+  private toast = inject(ToastService);
 
   isEdit = () => !!this.id();
 
@@ -174,7 +166,6 @@ export class RoomFormPage {
   note = signal('');
 
   saving = signal(false);
-  errorMessage = signal('');
 
   existingRoom = resource({
     params: () => (this.id() ? { id: this.id() } : undefined),
@@ -228,7 +219,6 @@ export class RoomFormPage {
 
   async onSubmit(event: Event) {
     event.preventDefault();
-    this.errorMessage.set('');
     this.saving.set(true);
     
     const payload = {
@@ -249,9 +239,10 @@ export class RoomFormPage {
         await this.roomsService.create(payload);
       }
       this.roomsService.roomsResource.reload();
+      this.toast.success(this.isEdit() ? 'Cập nhật phòng thành công.' : 'Tạo phòng thành công.');
       this.router.navigate(['/rooms']);
     } catch (err: any) {
-      this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Có lỗi xảy ra, vui lòng thử lại.');
+      this.toast.error(err?.error?.message ?? err?.message ?? 'Có lỗi xảy ra, vui lòng thử lại.');
     } finally {
       this.saving.set(false);
     }

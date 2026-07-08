@@ -20,6 +20,7 @@ import { UiModal } from '../../../shared/ui/modal/modal';
 import { AuthService } from '../../../core/auth/auth.service';
 import { InvoicesService } from '../../../core/services/invoices.service';
 import { RoomsService } from '../../../core/services/rooms.service';
+import { ToastService } from '../../../shared/ui/toast/toast';
 import { INVOICE_STATUS_COLOR, INVOICE_STATUS_LABEL } from '../../../core/models/invoice.model';
 import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
@@ -75,13 +76,6 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
               </button>
             }
           </div>
-
-          @if (generateToast()) {
-            <div class="mb-6 flex items-center justify-between gap-3 rounded-2xl border border-green-200 bg-[#E5F5E9] px-5 py-3.5 text-sm text-green-800">
-              <span>{{ generateToast() }}</span>
-              <button type="button" (click)="generateToast.set(null)" class="text-green-700 hover:text-green-900 font-bold text-sm shrink-0">&times;</button>
-            </div>
-          }
 
           @if (auth.isManager() && draftCount() > 0) {
             <button
@@ -218,10 +212,6 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
           <ui-input label="Năm" type="number" [(value)]="generateYear" />
         </div>
 
-        @if (generateError()) {
-          <p class="text-sm text-[#9A3412]">{{ generateError() }}</p>
-        }
-
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="closeGenerateModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Đóng</button>
           <button type="button" (click)="onGenerateDraft()" [disabled]="generating()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
@@ -244,10 +234,6 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
             <ui-input label="Chỉ số nước mới (*)" type="number" [(value)]="confirmWaterNew" />
           </div>
 
-          @if (confirmError()) {
-            <p class="text-sm text-[#9A3412]">{{ confirmError() }}</p>
-          }
-
           <div class="flex gap-2 justify-end pt-2">
             <button type="button" (click)="closeConfirmModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy bỏ</button>
             <button type="button" (click)="onConfirmDraft()" [disabled]="confirming()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">
@@ -264,6 +250,7 @@ export class InvoiceListPage {
   auth = inject(AuthService);
   private invoicesService = inject(InvoicesService);
   private roomsService = inject(RoomsService);
+  private toast = inject(ToastService);
 
   searchQuery = signal('');
   statusFilter = signal(this.route.snapshot.queryParamMap.get('status') ?? 'all');
@@ -283,9 +270,6 @@ export class InvoiceListPage {
   generateMonth = signal(String(new Date().getMonth() + 1));
   generateYear = signal(String(new Date().getFullYear()));
   generating = signal(false);
-  generateError = signal('');
-  generateToast = signal<string | null>(null);
-  private generateToastTimer: ReturnType<typeof setTimeout> | null = null;
 
   // ---- Modal: xác nhận hóa đơn nháp ----
   confirmModalOpen = signal(false);
@@ -293,7 +277,6 @@ export class InvoiceListPage {
   confirmElectricNew = signal('0');
   confirmWaterNew = signal('0');
   confirming = signal(false);
-  confirmError = signal('');
 
   // Map room_id -> Room để tra cứu O(1) thay vì .find() trong vòng lặp template
   private roomsMap = computed(() => {
@@ -348,7 +331,6 @@ export class InvoiceListPage {
   }
 
   openGenerateModal() {
-    this.generateError.set('');
     this.generateModalOpen.set(true);
   }
 
@@ -357,7 +339,6 @@ export class InvoiceListPage {
   }
 
   async onGenerateDraft() {
-    this.generateError.set('');
     this.generating.set(true);
     try {
       const result = await this.invoicesService.generateDraft({
@@ -366,29 +347,21 @@ export class InvoiceListPage {
       });
       this.invoices.reload();
 
-      // Tự đóng modal ngay khi thành công, thay bằng toast tóm tắt kết quả
-      // hiện ở đầu trang trong vài giây rồi tự ẩn.
+      // Tự đóng modal ngay khi thành công, hiển thị popup tóm tắt kết quả.
       this.closeGenerateModal();
       const errorCount = result.errors?.length ?? 0;
       const message =
         `Đã tạo mới ${result.created} hóa đơn, bỏ qua ${result.skipped} phòng đã có hóa đơn` +
         (errorCount > 0 ? `, lỗi ${errorCount} phòng.` : '.');
-      this.showGenerateToast(message);
+      this.toast.success(message);
     } catch (err: any) {
-      this.generateError.set(err?.error?.message ?? err?.message ?? 'Tạo hóa đơn nháp thất bại.');
+      this.toast.error(err?.error?.message ?? err?.message ?? 'Tạo hóa đơn nháp thất bại.');
     } finally {
       this.generating.set(false);
     }
   }
 
-  private showGenerateToast(message: string) {
-    if (this.generateToastTimer) clearTimeout(this.generateToastTimer);
-    this.generateToast.set(message);
-    this.generateToastTimer = setTimeout(() => this.generateToast.set(null), 6000);
-  }
-
   openConfirmModal(inv: any) {
-    this.confirmError.set('');
     this.confirmingInvoice.set(inv);
     this.confirmElectricNew.set(String(inv.electric_old ?? 0));
     this.confirmWaterNew.set(String(inv.water_old ?? 0));
@@ -404,7 +377,6 @@ export class InvoiceListPage {
     const inv = this.confirmingInvoice();
     if (!inv) return;
 
-    this.confirmError.set('');
     this.confirming.set(true);
     try {
       await this.invoicesService.confirmDraft(inv.id, {
@@ -413,8 +385,9 @@ export class InvoiceListPage {
       });
       this.invoices.reload();
       this.closeConfirmModal();
+      this.toast.success('Xác nhận hóa đơn thành công.');
     } catch (err: any) {
-      this.confirmError.set(err?.error?.message ?? err?.message ?? 'Xác nhận hóa đơn thất bại.');
+      this.toast.error(err?.error?.message ?? err?.message ?? 'Xác nhận hóa đơn thất bại.');
     } finally {
       this.confirming.set(false);
     }

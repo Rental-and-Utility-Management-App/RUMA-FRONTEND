@@ -20,6 +20,7 @@ import { UiInput } from '../../../shared/ui/input/input';
 import { UiDatePicker } from '../../../shared/ui/date-picker/date-picker';
 import { UiModal } from '../../../shared/ui/modal/modal';
 import { ConfirmService } from '../../../shared/ui/confirm/confirm';
+import { ToastService } from '../../../shared/ui/toast/toast';
 import { AuthService } from '../../../core/auth/auth.service';
 import { ContractsService } from '../../../core/services/contracts.service';
 import { UsersService } from '../../../core/services/users.service';
@@ -145,11 +146,6 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
                 </div>
               }
 
-              @if (errorMessage()) {
-                <div class="mt-4 flex items-center gap-3 rounded-xl bg-[#F4D9D2] p-4 text-sm font-medium text-[#9A3412]">
-                  <p>{{ errorMessage() }}</p>
-                </div>
-              }
             </div>
           }
 
@@ -186,9 +182,6 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
       <div class="flex flex-col gap-4">
         <ui-date-picker label="Ngày kết thúc mới (*)" [(value)]="extendEndDate" />
         <ui-input label="Giá thuê điều chỉnh (bỏ trống nếu giữ nguyên)" type="number" [(value)]="extendRent" />
-        @if (errorMessage()) {
-          <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
-        }
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="closeModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy bỏ</button>
           <button type="button" (click)="submitExtend()" [disabled]="submitting()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">Xác nhận</button>
@@ -200,9 +193,6 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
     <ui-modal [open]="activeModal() === 'collect-deposit'" title="Thu hồi bổ sung tiền cọc" (closeRequested)="closeModal()">
       <div class="flex flex-col gap-4">
         <ui-input label="Số tiền quỹ nạp thêm (₫) (*)" type="number" [(value)]="collectAmount" />
-        @if (errorMessage()) {
-          <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
-        }
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="closeModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy bỏ</button>
           <button type="button" (click)="submitCollectDeposit()" [disabled]="submitting()" class="rounded-full bg-[#FFC629] px-6 py-2.5 text-xs font-bold text-[#221D0F] disabled:opacity-70">Nạp quỹ cọc</button>
@@ -216,9 +206,6 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
         <ui-date-picker label="Ngày kết thúc thực tế (*)" [(value)]="checkoutDate" />
         <ui-input label="Số tiền hoàn lại cho khách (₫)" type="number" [(value)]="refundAmount" />
         <ui-input label="Số tiền khấu trừ phạt (₫)" type="number" [(value)]="forfeitAmount" />
-        @if (errorMessage()) {
-          <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
-        }
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="closeModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy</button>
           <button type="button" (click)="submitCheckout()" [disabled]="submitting()" class="rounded-full bg-[#9A3412] px-6 py-2.5 text-xs font-bold text-white disabled:opacity-70">Xác nhận thanh lý</button>
@@ -248,9 +235,6 @@ type ModalKind = 'extend' | 'collect-deposit' | 'checkout' | 'add-tenant' | null
             </select>
           </div>
         }
-        @if (errorMessage()) {
-          <p class="text-sm text-[#9A3412]">{{ errorMessage() }}</p>
-        }
         <div class="flex gap-2 justify-end pt-2">
           <button type="button" (click)="closeModal()" class="rounded-full bg-[#F1EBD8] px-5 py-2.5 text-xs font-semibold text-[#6B6455]">Hủy</button>
           <button type="button" (click)="submitAddTenant()" [disabled]="!newTenantId() || submitting()" class="rounded-full bg-[#221D0F] px-6 py-2.5 text-xs font-semibold text-white disabled:opacity-60">
@@ -268,6 +252,7 @@ export class ContractDetailPage {
   private contractsService = inject(ContractsService);
   private usersService = inject(UsersService);
   private confirm = inject(ConfirmService);
+  private toast = inject(ToastService);
 
   contract = resource({
     params: () => ({ id: this.id() }),
@@ -289,7 +274,6 @@ export class ContractDetailPage {
   activeModal = signal<ModalKind>(null);
   submitting = signal(false);
   cancelling = signal(false);
-  errorMessage = signal('');
 
   extendEndDate = signal('');
   extendRent = signal('');
@@ -385,15 +369,13 @@ export class ContractDetailPage {
   }
 
   openModal(kind: ModalKind) {
-    this.errorMessage.set('');
     this.activeModal.set(kind);
   }
   closeModal() {
     this.activeModal.set(null);
   }
 
-  private async runAction(fn: () => Promise<unknown>) {
-    this.errorMessage.set('');
+  private async runAction(fn: () => Promise<unknown>, successMessage = 'Thao tác thành công.') {
     this.submitting.set(true);
     this.confirm.setProcessing(true);
     try {
@@ -402,8 +384,9 @@ export class ContractDetailPage {
       this.contract.reload();
       this.depositTx.reload();
       this.closeModal();
+      this.toast.success(successMessage);
     } catch (err: any) {
-      this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Có lỗi xảy ra.');
+      this.toast.error(err?.error?.message ?? err?.message ?? 'Có lỗi xảy ra.');
     } finally {
       this.submitting.set(false);
       this.confirm.setProcessing(false);
@@ -412,9 +395,8 @@ export class ContractDetailPage {
 
   // ---- Gia hạn ----
   async submitExtend() {
-    this.errorMessage.set('');
     if (!this.extendEndDate()) {
-      this.errorMessage.set('Vui lòng chọn ngày kết thúc mới.');
+      this.toast.error('Vui lòng chọn ngày kết thúc mới.');
       return;
     }
     const rentText = this.extendRent()
@@ -430,20 +412,21 @@ export class ContractDetailPage {
   }
 
   private onExtend() {
-    return this.runAction(() =>
-      this.contractsService.extend(this.id(), {
-        new_end_date: this.extendEndDate(),
-        new_monthly_rent: this.extendRent() ? Number(this.extendRent()) : undefined,
-      })
+    return this.runAction(
+      () =>
+        this.contractsService.extend(this.id(), {
+          new_end_date: this.extendEndDate(),
+          new_monthly_rent: this.extendRent() ? Number(this.extendRent()) : undefined,
+        }),
+      'Gia hạn hợp đồng thành công.'
     );
   }
 
   // ---- Thu cọc ----
   async submitCollectDeposit() {
-    this.errorMessage.set('');
     const amount = Number(this.collectAmount());
     if (!this.collectAmount() || amount <= 0) {
-      this.errorMessage.set('Vui lòng nhập số tiền hợp lệ.');
+      this.toast.error('Vui lòng nhập số tiền hợp lệ.');
       return;
     }
     const ok = await this.confirm.ask({
@@ -456,19 +439,20 @@ export class ContractDetailPage {
   }
 
   private onCollectDeposit() {
-    return this.runAction(() =>
-      this.contractsService.collectDeposit(this.id(), {
-        amount: Number(this.collectAmount()),
-        method: 'cash',
-      })
+    return this.runAction(
+      () =>
+        this.contractsService.collectDeposit(this.id(), {
+          amount: Number(this.collectAmount()),
+          method: 'cash',
+        }),
+      'Thu cọc thành công.'
     );
   }
 
   // ---- Checkout ----
   async submitCheckout() {
-    this.errorMessage.set('');
     if (!this.checkoutDate()) {
-      this.errorMessage.set('Vui lòng chọn ngày kết thúc thực tế.');
+      this.toast.error('Vui lòng chọn ngày kết thúc thực tế.');
       return;
     }
     const refund = Number(this.refundAmount()) || 0;
@@ -484,18 +468,19 @@ export class ContractDetailPage {
   }
 
   private onCheckout() {
-    return this.runAction(() =>
-      this.contractsService.checkout(this.id(), {
-        actual_end_date: this.checkoutDate(),
-        refund_amount: Number(this.refundAmount()) || undefined,
-        forfeit_amount: Number(this.forfeitAmount()) || undefined,
-      })
+    return this.runAction(
+      () =>
+        this.contractsService.checkout(this.id(), {
+          actual_end_date: this.checkoutDate(),
+          refund_amount: Number(this.refundAmount()) || undefined,
+          forfeit_amount: Number(this.forfeitAmount()) || undefined,
+        }),
+      'Tất toán bàn giao phòng thành công.'
     );
   }
 
   // ---- Thêm tenant ----
   async submitAddTenant() {
-    this.errorMessage.set('');
     if (!this.newTenantId()) return;
     const tenant = this.availableTenants().find(u => u.id === this.newTenantId());
     const ok = await this.confirm.ask({
@@ -508,12 +493,14 @@ export class ContractDetailPage {
   }
 
   private onAddTenant() {
-    return this.runAction(() => this.contractsService.addTenant(this.id(), this.newTenantId()));
+    return this.runAction(
+      () => this.contractsService.addTenant(this.id(), this.newTenantId()),
+      'Thêm người ở ghép thành công.'
+    );
   }
 
   // ---- Hủy hợp đồng ----
   async submitCancel() {
-    this.errorMessage.set('');
     const ok = await this.confirm.ask({
       title: 'Xác nhận hủy hợp đồng',
       message: 'Bạn có chắc chắn muốn hủy hợp đồng này không? Hành động này không thể hoàn tác.',
@@ -525,15 +512,15 @@ export class ContractDetailPage {
   }
 
   private async onCancel() {
-    this.errorMessage.set('');
     this.cancelling.set(true);
     this.confirm.setProcessing(true);
     try {
       await this.contractsService.cancel(this.id());
       this.cardAnimated = false;
       this.contract.reload();
+      this.toast.success('Hủy hợp đồng thành công.');
     } catch (err: any) {
-      this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Hủy hợp đồng thất bại.');
+      this.toast.error(err?.error?.message ?? err?.message ?? 'Hủy hợp đồng thất bại.');
     } finally {
       this.cancelling.set(false);
       this.confirm.setProcessing(false);

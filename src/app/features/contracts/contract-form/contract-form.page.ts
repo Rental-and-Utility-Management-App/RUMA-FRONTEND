@@ -15,6 +15,7 @@ import gsap from 'gsap';
 import { UiInput } from '../../../shared/ui/input/input';
 import { UiDatePicker } from '../../../shared/ui/date-picker/date-picker';
 import { ContractsService } from '../../../core/services/contracts.service';
+import { ToastService } from '../../../shared/ui/toast/toast';
 import { RoomsService } from '../../../core/services/rooms.service';
 import { UsersService } from '../../../core/services/users.service';
 import { Room, UserResponse } from '../../../core/models';
@@ -160,16 +161,6 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                 </div>
               </div>
 
-              <!-- Cảnh báo lỗi -->
-              @if (errorMessage()) {
-                <div class="mb-6 flex items-center gap-3 rounded-xl bg-[#F4D9D2] p-4 text-sm font-medium text-[#9A3412]">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p>{{ errorMessage() }}</p>
-                </div>
-              }
-
               <!-- Submit Buttons -->
               <div class="flex flex-wrap items-center gap-3 pt-2">
                 <button type="submit" [disabled]="saving() || !canSubmit()" class="flex items-center justify-center gap-2 rounded-full bg-[#FFC629] px-8 py-3 text-sm font-bold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764] disabled:opacity-60 disabled:cursor-not-allowed">
@@ -198,6 +189,7 @@ export class ContractFormPage {
   router = inject(Router);
   auth = inject(AuthService);
   private contractsService = inject(ContractsService);
+  private toast = inject(ToastService);
   private roomsService = inject(RoomsService);
   private usersService = inject(UsersService);
 
@@ -228,7 +220,6 @@ export class ContractFormPage {
   note = signal('');
 
   saving = signal(false);
-  errorMessage = signal('');
 
   // Phòng đang được chọn (dùng để giới hạn số khách thuê theo capacity + gợi ý giá thuê).
   selectedRoom = computed(() => this.availableRooms().find((r) => r.id === this.roomId()) ?? null);
@@ -309,7 +300,6 @@ export class ContractFormPage {
     event.preventDefault();
     if (!this.canSubmit()) return;
 
-    this.errorMessage.set('');
     this.saving.set(true);
     try {
       await this.contractsService.create({
@@ -322,9 +312,10 @@ export class ContractFormPage {
         note: this.note() || undefined,
       });
       this.contractsService.contractsResource.reload();
+      this.toast.success('Tạo hợp đồng thành công.');
       this.router.navigate(['/contracts']);
     } catch (err: any) {
-      this.errorMessage.set(err?.error?.message ?? err?.message ?? 'Tạo hợp đồng thất bại.');
+      this.toast.error(err?.error?.message ?? err?.message ?? 'Tạo hợp đồng thất bại.');
     } finally {
       this.saving.set(false);
     }

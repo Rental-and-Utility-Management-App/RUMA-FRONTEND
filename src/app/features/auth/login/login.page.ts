@@ -11,6 +11,7 @@ import { Router } from '@angular/router';
 import gsap from 'gsap';
 import { UiButton } from '../../../shared/ui/button/button';
 import { AuthService } from '../../../core/auth/auth.service';
+import { ToastService } from '../../../shared/ui/toast/toast';
 
 @Component({
   selector: 'app-login',
@@ -192,15 +193,6 @@ import { AuthService } from '../../../core/auth/auth.service';
               </div>
             </div>
 
-            @if (errorMessage()) {
-              <p class="stagger-item flex items-center gap-1.5 text-xs text-red-300">
-                <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-                {{ errorMessage() }}
-              </p>
-            }
-
             <div class="stagger-item mt-1">
               <ui-button type="submit" [loading]="loading()" class="w-full">
                 Đăng nhập
@@ -215,6 +207,7 @@ import { AuthService } from '../../../core/auth/auth.service';
 export class LoginPage implements AfterViewInit {
   private auth = inject(AuthService);
   private router = inject(Router);
+  private toast = inject(ToastService);
 
   private bg1 = viewChild.required<ElementRef<HTMLDivElement>>('bg1');
   private bg2 = viewChild.required<ElementRef<HTMLDivElement>>('bg2');
@@ -230,7 +223,6 @@ export class LoginPage implements AfterViewInit {
   password = signal('');
   showPassword = signal(false);
   loading = signal(false);
-  errorMessage = signal('');
   transitioned = signal(false);
 
   // Lớp hạt sáng gần: nhiều hơn, lấp lánh rõ (amber, có glow)
@@ -393,13 +385,12 @@ export class LoginPage implements AfterViewInit {
   async onSubmit(event: Event) {
     event.preventDefault();
     event.stopPropagation();
-    this.errorMessage.set('');
     this.loading.set(true);
     try {
       const user = await this.auth.login(this.phone(), this.password());
       this.router.navigate([user.role === 'manager' ? '/dashboard' : '/rooms']);
     } catch (err: any) {
-      this.errorMessage.set(
+      this.toast.error(
         err?.error?.message ?? err?.message ?? 'Đăng nhập thất bại, vui lòng thử lại.'
       );
     } finally {
