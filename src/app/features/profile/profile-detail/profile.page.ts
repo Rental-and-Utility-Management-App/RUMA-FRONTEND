@@ -17,6 +17,7 @@ import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 import { ChangePasswordPage } from '../changepassword/changepassword.page';
 import { ConfirmService } from '../../../shared/ui/confirm/confirm';
+import { ToastService } from '../../../shared/ui/toast/toast';
 import { environment } from '../../../../environments/environment';
 
 // --- Kiểu dữ liệu tối thiểu cho hồ sơ, khớp với response của GET /api/auth/me ---
@@ -140,9 +141,6 @@ interface ProfileMe {
                     }
                   </div>
 
-                  @if (avatarMessage(); as msg) {
-                    <p class="mt-3 text-sm" [class.text-[#166534]]="!avatarError()" [class.text-[#9A3412]]="avatarError()">{{ msg }}</p>
-                  }
                 </div>
               </div>
             </div>
@@ -191,6 +189,7 @@ export class ProfilePage {
   auth = inject(AuthService);
   private http = inject(HttpClient);
   private confirm = inject(ConfirmService);
+  private toast = inject(ToastService);
 
   // --- Hồ sơ ---
   profile = signal<ProfileMe | null>(null);
@@ -201,8 +200,6 @@ export class ProfilePage {
   avatarPreview = signal<string | null>(null);
   uploadingAvatar = signal(false);
   removingAvatar = signal(false);
-  avatarMessage = signal<string | null>(null);
-  avatarError = signal(false);
 
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');
   private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
@@ -270,8 +267,6 @@ export class ProfilePage {
     reader.readAsDataURL(file);
 
     this.uploadingAvatar.set(true);
-    this.avatarMessage.set(null);
-    this.avatarError.set(false);
 
     try {
       const formData = new FormData();
@@ -286,10 +281,13 @@ export class ProfilePage {
       const newUrl = res.data.avatarUrl ?? res.data.avatar_url ?? this.avatarPreview() ?? undefined;
 
       this.profile.update((p) => (p ? { ...p, avatar_url: newUrl ?? p.avatar_url } : p));
-      this.avatarMessage.set('Cập nhật ảnh đại diện thành công.');
-    } catch {
-      this.avatarError.set(true);
-      this.avatarMessage.set('Tải ảnh lên thất bại. Vui lòng thử lại.');
+      // Đồng bộ ngay vào AuthService.currentUser để sidebar/header (đang đọc
+      // auth.currentUser()?.avatar_url) cập nhật avatar mới NGAY LẬP TỨC,
+      // không cần load lại trang.
+      this.auth.updateCurrentUser({ avatar_url: newUrl ?? undefined });
+      this.toast.success('Cập nhật ảnh đại diện thành công.');
+    } catch (err: any) {
+      this.toast.error(err?.error?.message ?? err?.message ?? 'Tải ảnh lên thất bại. Vui lòng thử lại.');
       this.avatarPreview.set(null);
     } finally {
       this.uploadingAvatar.set(false);
@@ -315,8 +313,6 @@ export class ProfilePage {
   private async removeAvatar(): Promise<void> {
     this.removingAvatar.set(true);
     this.confirm.setProcessing(true);
-    this.avatarMessage.set(null);
-    this.avatarError.set(false);
 
     try {
       const res = await firstValueFrom(this.http.delete<ApiResponse<null>>(`${environment.apiUrl}/users/me/avatar`));
@@ -325,10 +321,11 @@ export class ProfilePage {
       }
       this.profile.update((p) => (p ? { ...p, avatar_url: null } : p));
       this.avatarPreview.set(null);
-      this.avatarMessage.set('Đã gỡ ảnh đại diện.');
-    } catch {
-      this.avatarError.set(true);
-      this.avatarMessage.set('Gỡ ảnh thất bại. Vui lòng thử lại.');
+      // Đồng bộ ngay vào AuthService.currentUser để sidebar/header ẩn avatar cũ ngay lập tức.
+      this.auth.updateCurrentUser({ avatar_url: undefined });
+      this.toast.success('Đã gỡ ảnh đại diện.');
+    } catch (err: any) {
+      this.toast.error(err?.error?.message ?? err?.message ?? 'Gỡ ảnh thất bại. Vui lòng thử lại.');
     } finally {
       this.removingAvatar.set(false);
       this.confirm.setProcessing(false);

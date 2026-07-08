@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, inject, signal, computed } from '@a
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { SIDEBAR_ICONS } from '../../../shared/ui/sidebar/sidebar-icons';
+import { ConfirmService } from '../../../shared/ui/confirm/confirm';
 
 interface NavItem {
   label: string;
@@ -128,6 +129,7 @@ interface NavItem {
 export class ManagerSidebar {
   auth = inject(AuthService);
   private router = inject(Router);
+  private confirm = inject(ConfirmService);
 
   mobileOpen = signal(false);
   loggingOut = signal(false);
@@ -148,6 +150,16 @@ export class ManagerSidebar {
 
   async onLogout() {
     if (this.loggingOut()) return;
+
+    const ok = await this.confirm.ask({
+      title: 'Xác nhận đăng xuất',
+      message: 'Bạn có chắc chắn muốn đăng xuất không?',
+      confirmText: 'Đăng xuất',
+      cancelText: 'Hủy bỏ',
+      danger: true,
+    });
+    if (!ok) return;
+
     this.loggingOut.set(true);
     try {
       await this.auth.logout();

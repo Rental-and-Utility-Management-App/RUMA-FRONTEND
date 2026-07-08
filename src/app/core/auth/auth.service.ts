@@ -98,6 +98,20 @@ export class AuthService {
     this.currentUser.set(user);
   }
 
+  /**
+   * Cập nhật một phần thông tin user hiện tại (vd: avatar_url sau khi đổi/gỡ ảnh)
+   * ngay trên currentUser signal + đồng bộ lại localStorage, để các nơi khác
+   * đang đọc auth.currentUser() (sidebar, header...) thấy thay đổi NGAY LẬP TỨC
+   * mà không cần load lại trang hay gọi lại /auth/me.
+   */
+  updateCurrentUser(patch: Partial<UserResponse>): void {
+    const current = this.currentUser();
+    if (!current) return;
+    const updated = { ...current, ...patch };
+    this.currentUser.set(updated);
+    localStorage.setItem(USER_KEY, JSON.stringify(updated));
+  }
+
   logout(): void {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
