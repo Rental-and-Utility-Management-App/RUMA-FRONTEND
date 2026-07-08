@@ -16,6 +16,10 @@ export const routes: Routes = [
           import('./features/dashboard/dashboard.routes').then((m) => m.DASHBOARD_ROUTES),
       },
       {
+        path: 'tenant-home',
+        loadComponent: () => import('./features/tenant/tenant-home.page').then((m) => m.TenantHomePage),
+      },
+      {
         path: 'rooms',
         loadChildren: () =>
           import('./features/rooms/rooms.routes').then((m) => m.ROOMS_ROUTES),
@@ -50,7 +54,7 @@ export const routes: Routes = [
         loadChildren: () =>
           import('./features/profile/profile.routes').then((m) => m.PROFILE_ROUTES),
       },
-      { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
+      { path: '', pathMatch: 'full', redirectTo: 'tenant-home' },
     ],
   },
   { path: '**', redirectTo: 'dashboard' },

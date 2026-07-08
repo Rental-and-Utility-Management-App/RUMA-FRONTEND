@@ -388,7 +388,7 @@ export class LoginPage implements AfterViewInit {
     this.loading.set(true);
     try {
       const user = await this.auth.login(this.phone(), this.password());
-      this.router.navigate([user.role === 'manager' ? '/dashboard' : '/rooms']);
+      this.router.navigate([user.role === 'manager' ? '/dashboard' : '/tenant-home']);
     } catch (err: any) {
       this.toast.error(
         err?.error?.message ?? err?.message ?? 'Đăng nhập thất bại, vui lòng thử lại.'
