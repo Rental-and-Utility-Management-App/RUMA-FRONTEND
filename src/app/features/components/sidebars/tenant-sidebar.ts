@@ -20,7 +20,7 @@ interface NavItem {
       type="button"
       (click)="mobileOpen.set(true)"
       class="md:hidden fixed top-4 left-4 z-40 flex h-10 w-10 items-center justify-center rounded-xl
-             bg-white border border-slate-200 shadow-sm text-slate-600 hover:text-primary hover:border-primary/40"
+             bg-white border border-[#EFE6CC] shadow-sm text-[#6B6455] hover:text-[#221D0F] hover:border-[#FFC629]/50"
       aria-label="Mở menu"
     >
       <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -29,24 +29,24 @@ interface NavItem {
     </button>
 
     @if (mobileOpen()) {
-      <div class="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm md:hidden" (click)="mobileOpen.set(false)"></div>
+      <div class="fixed inset-0 z-40 bg-[#221D0F]/40 backdrop-blur-sm md:hidden" (click)="mobileOpen.set(false)"></div>
     }
 
     <aside
-      class="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-200/70 bg-white/90
+      class="fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-[#EFE6CC] bg-[#FFFDF7]/95
              backdrop-blur-xl transition-transform duration-300 ease-out md:translate-x-0"
       [class.translate-x-0]="mobileOpen()"
       [class.-translate-x-full]="!mobileOpen()"
     >
-      <div class="flex items-center gap-2.5 px-5 h-16 border-b border-slate-200/70 shrink-0">
-        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-linear-to-br from-primary to-indigo-500 text-white font-bold text-sm shadow-md shadow-primary/25">
+      <div class="flex items-center gap-2.5 px-5 h-16 border-b border-[#EFE6CC] shrink-0">
+        <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-[#221D0F] text-[#FFC629] font-bold text-sm shadow-md shadow-[#221D0F]/10">
           R
         </div>
         <div class="leading-tight">
-          <p class="text-sm font-bold text-slate-900">RUMA</p>
-          <p class="text-[11px] text-slate-400">Không gian của tôi</p>
+          <p class="text-sm font-bold text-[#221D0F]">RUMA</p>
+          <p class="text-[11px] text-[#8A8270]">Không gian của tôi</p>
         </div>
-        <button type="button" (click)="mobileOpen.set(false)" class="ml-auto md:hidden text-slate-400 hover:text-slate-700" aria-label="Đóng menu">
+        <button type="button" (click)="mobileOpen.set(false)" class="ml-auto md:hidden text-[#8A8270] hover:text-[#221D0F]" aria-label="Đóng menu">
           <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
           </svg>
@@ -57,48 +57,56 @@ interface NavItem {
         @for (item of navItems; track item.route) {
           <a
             [routerLink]="item.route"
-            routerLinkActive="bg-primary/10 text-primary"
+            routerLinkActive="bg-[#FFC629] text-[#221D0F] shadow-sm"
             [routerLinkActiveOptions]="{ exact: item.route === '/rooms' }"
             #rla="routerLinkActive"
             (click)="mobileOpen.set(false)"
-            class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600
-                   transition-colors duration-200 hover:bg-slate-100 hover:text-slate-900"
+            class="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#6B6455]
+                   transition-colors duration-200 hover:bg-[#FFF6DC] hover:text-[#221D0F]"
           >
-            <span class="flex h-5 w-5 shrink-0 items-center justify-center" [class.text-primary]="rla.isActive" [class.text-slate-400]="!rla.isActive">
+            <span class="flex h-5 w-5 shrink-0 items-center justify-center" [class.text-[#221D0F]]="rla.isActive" [class.text-[#B8B096]]="!rla.isActive">
               <span [innerHTML]="icons[item.icon]"></span>
             </span>
             {{ item.label }}
             @if (rla.isActive) {
-              <span class="ml-auto h-1.5 w-1.5 rounded-full bg-primary"></span>
+              <span class="ml-auto h-1.5 w-1.5 rounded-full bg-[#221D0F]"></span>
             }
           </a>
         }
       </nav>
 
-      <div class="shrink-0 border-t border-slate-200/70 p-3">
-        <div class="flex items-center gap-3 rounded-xl px-2 py-2">
+      <div class="shrink-0 border-t border-[#EFE6CC] p-3">
+        <a
+          routerLink="/profile"
+          routerLinkActive="bg-[#FFF6DC]"
+          (click)="mobileOpen.set(false)"
+          class="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors duration-200 hover:bg-[#FFF6DC]"
+        >
           @if (auth.currentUser()?.avatar_url) {
             <img
               [src]="auth.currentUser()?.avatar_url"
               alt=""
-              class="h-9 w-9 shrink-0 rounded-full object-cover border border-slate-200"
+              class="h-9 w-9 shrink-0 rounded-full object-cover border border-[#EFE6CC]"
             />
           } @else {
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-200 text-slate-700 font-semibold text-sm">
+            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#FFE9AC] text-[#8A6200] font-semibold text-sm">
               {{ initials() }}
             </div>
           }
           <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium text-slate-900">{{ auth.currentUser()?.full_name ?? 'Người thuê' }}</p>
-            <p class="truncate text-xs text-slate-400">Người thuê</p>
+            <p class="truncate text-sm font-medium text-[#221D0F]">{{ auth.currentUser()?.full_name ?? 'Người thuê' }}</p>
+            <p class="truncate text-xs text-[#8A8270]">Người thuê</p>
           </div>
-        </div>
+          <svg class="h-4 w-4 shrink-0 text-[#B8B096]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+          </svg>
+        </a>
 
         <button
           type="button"
           (click)="onLogout()"
           [disabled]="loggingOut()"
-          class="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-500
+          class="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-[#8A8270]
                  transition-colors duration-200 hover:bg-red-50 hover:text-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span class="flex h-5 w-5 shrink-0 items-center justify-center">
@@ -132,8 +140,6 @@ export class TenantSidebar {
     { label: 'Hợp đồng', route: '/contracts', icon: 'file' },
     { label: 'Hóa đơn', route: '/invoices', icon: 'invoice' },
     { label: 'Thanh toán', route: '/payments', icon: 'wallet' },
-    { label: 'Thông báo', route: '/notifications', icon: 'bell' },
-    { label: 'Hồ sơ', route: '/profile', icon: 'user' },
   ];
 
   initials = computed(() => {

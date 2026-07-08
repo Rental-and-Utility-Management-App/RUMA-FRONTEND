@@ -16,22 +16,17 @@ import gsap from 'gsap';
 import { UiBadge } from '../../../shared/ui/badge/badge';
 import { UsersService } from '../../../core/services/users.service';
 import { AuthService } from '../../../core/auth/auth.service';
-import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
 @Component({
   selector: 'app-tenant-list',
   standalone: true,
-  imports: [RouterLink, UiBadge, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, UiBadge, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
-      <!-- Sidebar theo vai trò -->
-      @if (auth.isManager()) {
-        <app-manager-sidebar />
-      } @else {
-        <app-tenant-sidebar />
-      }
+      <!-- Sidebar -->
+      <app-manager-sidebar />
 
       <div class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]" style="background-image: url('/dashboard-bg.jpg');"></div>
       <div class="pointer-events-none absolute inset-0 -z-20 bg-linear-to-b from-[#FBF7ED]/60 via-[#FBF7ED]/85 to-[#FBF7ED]"></div>

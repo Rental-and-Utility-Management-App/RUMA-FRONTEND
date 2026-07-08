@@ -6,6 +6,7 @@ import {
   viewChild,
   afterNextRender,
   signal,
+  computed,
 } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
@@ -13,6 +14,8 @@ import gsap from 'gsap';
 
 import { AuthService } from '../../../core/auth/auth.service';
 import { ApiResponse } from '../../../core/models/api-response.model';
+import { RoomsService } from '../../../core/services/rooms.service';
+import { Room } from '../../../core/models';
 import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 import { ChangePasswordPage } from '../changepassword/changepassword.page';
@@ -113,7 +116,13 @@ interface ProfileMe {
                     <div class="mt-2 flex items-center justify-center sm:justify-start gap-1.5">
                       <span class="text-xs text-[#8A8270]">Phòng:</span>
                       <span class="inline-block rounded-md bg-[#FFC629] px-2 py-0.5 text-xs font-bold text-[#221D0F] shadow-sm">
-                        {{ p.room?.code || p.room_id }}
+                        @if (rooms.isLoading() && !rooms.hasValue()) {
+                          Đang tải...
+                        } @else if (currentRoom(); as r) {
+                          {{ r.name }}
+                        } @else {
+                          {{ p.room?.code || p.room_id }}
+                        }
                       </span>
                     </div>
                   }
@@ -190,11 +199,24 @@ export class ProfilePage {
   private http = inject(HttpClient);
   private confirm = inject(ConfirmService);
   private toast = inject(ToastService);
+  private roomsService = inject(RoomsService);
 
   // --- Hồ sơ ---
   profile = signal<ProfileMe | null>(null);
   loadingProfile = signal(true);
   loadError = signal<string | null>(null);
+
+  // --- Danh sách phòng (GET /api/rooms) dùng để tra tên/mã phòng theo room_id ---
+  rooms = this.roomsService.roomsResource;
+
+  private roomsList = computed<Room[]>(() => this.rooms.value()?.data ?? []);
+
+  // Phòng hiện tại của người dùng, tra theo room_id trong danh sách phòng đã tải
+  currentRoom = computed(() => {
+    const roomId = this.profile()?.room_id;
+    if (!roomId) return null;
+    return this.roomsList().find((r) => r.id === roomId) ?? null;
+  });
 
   // --- Avatar ---
   avatarPreview = signal<string | null>(null);
