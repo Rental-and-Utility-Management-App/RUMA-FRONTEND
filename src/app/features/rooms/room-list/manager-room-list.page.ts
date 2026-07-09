@@ -15,7 +15,6 @@ import { DecimalPipe } from '@angular/common';
 import gsap from 'gsap';
 
 import { UiBadge } from '../../../shared/ui/badge/badge';
-import { AuthService } from '../../../core/auth/auth.service';
 import { RoomsService } from '../../../core/services/rooms.service';
 import {
   Room,
@@ -25,7 +24,6 @@ import {
   ROOM_PAYMENT_OVERDUE_COLOR,
   ROOM_PAYMENT_OVERDUE_LABEL,
 } from '../../../core/models';
-import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
 const STATUS_COLOR: Record<RoomStatus, string> = {
@@ -38,17 +36,13 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
 };
 
 @Component({
-  selector: 'app-room-list',
+  selector: 'app-manager-room-list',
   standalone: true,
-  imports: [RouterLink, UiBadge, DecimalPipe, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, UiBadge, DecimalPipe, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
-      @if (auth.isManager()) {
-        <app-manager-sidebar />
-      } @else {
-        <app-tenant-sidebar />
-      }
+      <app-manager-sidebar />
 
       <div class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]" style="background-image: url('/dashboard-bg.jpg');"></div>
       <div class="pointer-events-none absolute inset-0 -z-20 bg-linear-to-b from-[#FBF7ED]/60 via-[#FBF7ED]/85 to-[#FBF7ED]"></div>
@@ -60,7 +54,7 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
 
       <div class="relative md:pl-64">
         <div class="max-w-5xl mx-auto p-6 md:p-10">
-          
+
           <!-- Header -->
           <div #hero class="mb-8 flex flex-wrap items-end justify-between gap-4 opacity-0">
             <div>
@@ -77,17 +71,15 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
               <p class="mt-3 text-[#8A8270]">Quản lý và theo dõi trạng thái các phòng hiện tại.</p>
             </div>
 
-            @if (auth.isManager()) {
-              <a
-                routerLink="/rooms/new"
-                class="flex items-center gap-2 rounded-full bg-[#FFC629] px-5 py-2.5 text-sm font-semibold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764]"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                </svg>
-                Tạo phòng
-              </a>
-            }
+            <a
+              routerLink="/rooms/new"
+              class="flex items-center gap-2 rounded-full bg-[#FFC629] px-5 py-2.5 text-sm font-semibold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764]"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              Tạo phòng
+            </a>
           </div>
 
           <!-- Bộ lọc & Tìm kiếm -->
@@ -150,7 +142,7 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
                          transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(255,198,41,0.25)] overflow-hidden h-full"
                 >
                   <div class="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#FFC629]/15 transition-transform duration-500 group-hover:scale-150"></div>
-                  
+
                   <div class="relative flex items-center justify-between mb-5">
                     <div class="flex items-center gap-3">
                       <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#FBF7ED] text-sm font-bold text-[#8A6200]">
@@ -162,7 +154,7 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
                       {{ STATUS_LABEL[room.status] }}
                     </ui-badge>
                   </div>
-                  
+
                   <div class="relative mt-auto space-y-3 border-t border-[#F1EBD8] pt-4">
                     <div class="flex items-center justify-between text-sm">
                       <span class="flex items-center gap-1.5 text-[#8A8270]">
@@ -173,7 +165,7 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
                       </span>
                       <span class="font-medium text-[#221D0F]">{{ room.occupants }}/{{ room.capacity }} người</span>
                     </div>
-                    
+
                     <div class="flex items-center justify-between text-sm">
                       <span class="flex items-center gap-1.5 text-[#8A8270]">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -211,8 +203,7 @@ const STATUS_LABEL: Record<RoomStatus, string> = {
     </div>
   `,
 })
-export class RoomListPage {
-  auth = inject(AuthService);
+export class ManagerRoomListPage {
   private roomsService = inject(RoomsService);
   rooms = this.roomsService.roomsResource;
 

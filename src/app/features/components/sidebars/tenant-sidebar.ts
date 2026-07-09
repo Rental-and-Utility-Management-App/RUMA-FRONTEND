@@ -137,7 +137,6 @@ export class TenantSidebar {
 
   readonly navItems: NavItem[] = [
     { label: 'Phòng của tôi', route: '/rooms', icon: 'door' },
-    { label: 'Hợp đồng', route: '/contracts', icon: 'file' },
     { label: 'Hóa đơn', route: '/invoices', icon: 'invoice' },
     { label: 'Thanh toán', route: '/payments', icon: 'wallet' },
   ];

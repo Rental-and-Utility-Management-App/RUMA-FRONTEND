@@ -1,11 +1,18 @@
 import { Routes } from '@angular/router';
 import { managerGuard } from '../../core/guards/manager.guard';
+import { managerMatch } from '../../core/guards/role-match.guard';
 
 export const ROOMS_ROUTES: Routes = [
   {
     path: '',
+    canMatch: [managerMatch],
     loadComponent: () =>
-      import('./room-list/room-list.page').then((m) => m.RoomListPage),
+      import('./room-list/manager-room-list.page').then((m) => m.ManagerRoomListPage),
+  },
+  {
+    path: '',
+    loadComponent: () =>
+      import('./room-list/tenant-room-list.page').then((m) => m.TenantRoomListPage),
   },
   {
     path: 'new',
@@ -21,7 +28,13 @@ export const ROOMS_ROUTES: Routes = [
   },
   {
     path: ':id',
+    canMatch: [managerMatch],
     loadComponent: () =>
-      import('./room-detail/room-detail.page').then((m) => m.RoomDetailPage),
+      import('./room-detail/manager-room-detail.page').then((m) => m.ManagerRoomDetailPage),
+  },
+  {
+    path: ':id',
+    loadComponent: () =>
+      import('./room-detail/tenant-room-detail.page').then((m) => m.TenantRoomDetailPage),
   },
 ];

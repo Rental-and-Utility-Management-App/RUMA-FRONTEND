@@ -19,26 +19,20 @@ import { UiBadge } from '../../../shared/ui/badge/badge';
 import { UiInput } from '../../../shared/ui/input/input';
 import { UiModal } from '../../../shared/ui/modal/modal';
 import { ConfirmService } from '../../../shared/ui/confirm/confirm';
-import { AuthService } from '../../../core/auth/auth.service';
 import { InvoicesService } from '../../../core/services/invoices.service';
 import { PaymentsService } from '../../../core/services/payments.service';
 import { INVOICE_STATUS_COLOR, INVOICE_STATUS_LABEL } from '../../../core/models/invoice.model';
 import { PAYMENT_METHOD_LABEL, PaymentMethod } from '../../../core/models/payment.model';
-import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
 @Component({
-  selector: 'app-invoice-detail',
+  selector: 'app-manager-invoice-detail',
   standalone: true,
-  imports: [RouterLink, UiBadge, UiInput, UiModal, DecimalPipe, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, UiBadge, UiInput, UiModal, DecimalPipe, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
-      @if (auth.isManager()) {
-        <app-manager-sidebar />
-      } @else {
-        <app-tenant-sidebar />
-      }
+      <app-manager-sidebar />
 
       <div class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]" style="background-image: url('/dashboard-bg.jpg');"></div>
       <div class="pointer-events-none absolute inset-0 -z-20 bg-linear-to-b from-[#FBF7ED]/60 via-[#FBF7ED]/85 to-[#FBF7ED]"></div>
@@ -172,16 +166,12 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
               <div class="relative flex flex-wrap gap-3 mt-8 pt-6 border-t border-[#F1EBD8]">
                 @if (inv.status === 'draft') {
-                  @if (auth.isManager()) {
-                    <button (click)="openConfirmDraftModal(inv)" class="flex items-center gap-2 rounded-full bg-[#FFC629] px-6 py-2.5 text-sm font-bold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764]">
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Xác nhận chỉ số điện/nước
-                    </button>
-                  } @else {
-                    <p class="text-sm text-[#8A8270]">Hóa đơn đang được lập, vui lòng chờ quản lý xác nhận.</p>
-                  }
+                  <button (click)="openConfirmDraftModal(inv)" class="flex items-center gap-2 rounded-full bg-[#FFC629] px-6 py-2.5 text-sm font-bold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764]">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Xác nhận chỉ số điện/nước
+                  </button>
                 } @else {
                   @if (inv.status !== 'paid') {
                     <button (click)="loadQr()" class="flex items-center gap-2 rounded-full bg-[#F1EBD8] px-6 py-2.5 text-sm font-semibold text-[#221D0F] transition hover:bg-[#E9E4D6] disabled:opacity-60" [disabled]="loadingQr()">
@@ -195,7 +185,7 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
                       }
                     </button>
                   }
-                  @if (auth.isManager() && inv.status !== 'paid' && inv.status !== 'cancelled') {
+                  @if (inv.status !== 'paid' && inv.status !== 'cancelled') {
                     <button (click)="openPaymentModal()" class="flex items-center gap-2 rounded-full bg-[#FFC629] px-6 py-2.5 text-sm font-bold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764]">
                       Ghi nhận thanh toán tay
                     </button>
@@ -297,10 +287,9 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
     </ui-modal>
   `,
 })
-export class InvoiceDetailPage {
+export class ManagerInvoiceDetailPage {
   id = input.required<string>();
 
-  auth = inject(AuthService);
   private invoicesService = inject(InvoicesService);
   private paymentsService = inject(PaymentsService);
   private confirm = inject(ConfirmService);

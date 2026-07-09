@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import { ApiResponse, UserResponse } from '../models';
+import { AuthService } from '../auth/auth.service';
 
 const BASE = `${environment.apiUrl}/users`;
 
@@ -16,9 +17,19 @@ export interface CreateTenantPayload {
 @Injectable({ providedIn: 'root' })
 export class UsersService {
   private http = inject(HttpClient);
+  private auth = inject(AuthService);
 
-  /** Danh sách tenant — chỉ manager gọi được (backend enforce) */
-  usersResource = httpResource<ApiResponse<UserResponse[]>>(() => BASE);
+  /**
+   * Danh sách tenant — chỉ manager gọi được (backend enforce, trả 403 nếu
+   * không phải manager). Để tránh gửi request thừa chắc chắn bị 403 khi
+   * tenant vào các trang có dùng usersResource (payment-list, contract-detail,
+   * manager-invoice-list...), request function ở đây trả về `undefined` khi
+   * không phải manager — httpResource sẽ tự bỏ qua, KHÔNG gọi API, thay vì
+   * gọi rồi bỏ kết quả lỗi đi như trước.
+   */
+  usersResource = httpResource<ApiResponse<UserResponse[]>>(() =>
+    this.auth.isManager() ? BASE : undefined
+  );
 
   async getById(id: string): Promise<UserResponse> {
     const res = await firstValueFrom(this.http.get<ApiResponse<UserResponse>>(`${BASE}/${id}`));

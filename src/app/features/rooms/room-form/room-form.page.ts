@@ -15,24 +15,18 @@ import gsap from 'gsap';
 
 import { UiInput } from '../../../shared/ui/input/input';
 import { RoomsService } from '../../../core/services/rooms.service';
-import { AuthService } from '../../../core/auth/auth.service';
-import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 import { ToastService } from '../../../shared/ui/toast/toast';
 
 @Component({
   selector: 'app-room-form',
   standalone: true,
-  imports: [UiInput, RouterLink, TenantSidebar, ManagerSidebar],
+  imports: [UiInput, RouterLink, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
-      <!-- Sidebar theo vai trò -->
-      @if (auth.isManager()) {
-        <app-manager-sidebar />
-      } @else {
-        <app-tenant-sidebar />
-      }
+      <!-- Route này chỉ manager mới truy cập được (managerGuard) -->
+      <app-manager-sidebar />
 
       <!-- Ảnh nền mờ chìm -->
       <div
@@ -150,7 +144,6 @@ export class RoomFormPage {
   id = input<string>('');
 
   router = inject(Router);
-  auth = inject(AuthService); // Inject thêm để check role hiển thị Sidebar
   private roomsService = inject(RoomsService);
   private toast = inject(ToastService);
 

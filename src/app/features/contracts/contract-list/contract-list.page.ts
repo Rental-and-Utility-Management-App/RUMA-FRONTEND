@@ -81,8 +81,8 @@ const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
             }
           </div>
 
-          <!-- Bộ lọc & Tìm kiếm (MỚI) -->
-          <div #filterBar class="mb-6 flex flex-wrap items-center gap-3 rounded-2xl border border-[#EFE6CC] bg-white p-4 shadow-[0_2px_10px_rgba(34,29,15,0.02)] opacity-0">
+          <!-- Tìm kiếm -->
+          <div #filterBar class="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-[#EFE6CC] bg-white p-4 shadow-[0_2px_10px_rgba(34,29,15,0.02)] opacity-0">
             <div class="relative flex-1 min-w-60">
               <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#8A8270]">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -96,19 +96,22 @@ const CONTRACT_STATUS_LABEL: Record<ContractStatus, string> = {
                 class="w-full rounded-full border border-[#EFE6CC] bg-[#FBF7ED]/50 py-2 pl-10 pr-4 text-sm text-[#221D0F] placeholder-[#8A8270] focus:border-[#FFC629] focus:bg-white focus:outline-none transition-all"
               />
             </div>
+          </div>
 
-            <div class="shrink-0">
-              <select
-                (change)="statusFilter.set($any($event.target).value)"
-                class="rounded-full border border-[#EFE6CC] bg-[#FBF7ED]/50 px-4 py-2 text-sm text-[#221D0F] focus:border-[#FFC629] focus:bg-white focus:outline-none transition-all"
+          <!-- Bộ lọc trạng thái: dạng nút bấm thay vì dropdown -->
+          <div #statusFilterBar class="mb-6 flex flex-wrap items-center gap-2 opacity-0">
+            @for (s of statusOptions; track s.value) {
+              <button
+                type="button"
+                (click)="statusFilter.set(s.value)"
+                class="rounded-full px-4 py-2 text-sm font-semibold border transition-all"
+                [class]="statusFilter() === s.value
+                  ? 'bg-[#221D0F] border-[#221D0F] text-[#FFC629]'
+                  : 'bg-white border-[#EFE6CC] text-[#6B6455] hover:border-[#FFC629] hover:text-[#221D0F]'"
               >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="active">Đang hiệu lực</option>
-                <option value="ended">Đã kết thúc</option>
-                <option value="terminated">Đã chấm dứt</option>
-                <option value="cancelled">Đã hủy</option>
-              </select>
-            </div>
+                {{ s.label }}
+              </button>
+            }
           </div>
 
           <!-- Content List -->
@@ -185,11 +188,19 @@ export class ContractListPage {
   searchQuery = signal('');
   statusFilter = signal('all');
 
+  statusOptions: { value: string; label: string }[] = [
+    { value: 'all', label: 'Tất cả trạng thái' },
+    { value: 'active', label: 'Đang hiệu lực' },
+    { value: 'ended', label: 'Đã kết thúc' },
+    { value: 'terminated', label: 'Đã chấm dứt' },
+    { value: 'cancelled', label: 'Đã hủy' },
+  ];
+
   DEPOSIT_STATUS_COLOR = DEPOSIT_STATUS_COLOR;
   DEPOSIT_STATUS_LABEL = DEPOSIT_STATUS_LABEL;
   CONTRACT_STATUS_LABEL = CONTRACT_STATUS_LABEL;
 
-  // Lọc dữ liệu client-side mượt mà theo thời gian thực (MỚI)
+  // Lọc dữ liệu client-side mượt mà theo thời gian thực
   filteredContracts = computed(() => {
     const list = this.contracts.value()?.data ?? [];
     const search = this.searchQuery().toLowerCase().trim();
@@ -207,6 +218,7 @@ export class ContractListPage {
   private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
   private hero = viewChild<ElementRef<HTMLElement>>('hero');
   private filterBar = viewChild<ElementRef<HTMLElement>>('filterBar');
+  private statusFilterBar = viewChild<ElementRef<HTMLElement>>('statusFilterBar');
   private cards = viewChildren<ElementRef<HTMLElement>>('card');
   private animatedCards = false;
 
@@ -217,6 +229,7 @@ export class ContractListPage {
       const blob2El = this.blob2()?.nativeElement;
       const heroEl = this.hero()?.nativeElement;
       const filterEl = this.filterBar()?.nativeElement;
+      const statusFilterEl = this.statusFilterBar()?.nativeElement;
 
       const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
 
@@ -228,6 +241,9 @@ export class ContractListPage {
       }
       if (filterEl) {
         tl.fromTo(filterEl, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3 }, '-=0.2');
+      }
+      if (statusFilterEl) {
+        tl.fromTo(statusFilterEl, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3 }, '-=0.2');
       }
 
       if (blob1El) gsap.to(blob1El, { x: 20, y: 15, duration: 6, ease: 'sine.inOut', repeat: -1, yoyo: true });

@@ -15,7 +15,6 @@ import { RouterLink } from '@angular/router';
 import gsap from 'gsap';
 
 import { UiBadge } from '../../../shared/ui/badge/badge';
-import { AuthService } from '../../../core/auth/auth.service';
 import { RoomsService } from '../../../core/services/rooms.service';
 import { ContractsService } from '../../../core/services/contracts.service';
 import {
@@ -26,7 +25,6 @@ import {
   ROOM_PAYMENT_OVERDUE_LABEL,
 } from '../../../core/models';
 import { DEPOSIT_STATUS_COLOR, DEPOSIT_STATUS_LABEL } from '../../../core/models/contract.model';
-import { TenantSidebar } from '../../components/sidebars/tenant-sidebar';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 
 const ROOM_STATUS_COLOR: Record<RoomStatus, string> = {
@@ -39,17 +37,13 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
 };
 
 @Component({
-  selector: 'app-room-detail',
+  selector: 'app-manager-room-detail',
   standalone: true,
-  imports: [RouterLink, UiBadge, DecimalPipe, DatePipe, TenantSidebar, ManagerSidebar],
+  imports: [RouterLink, UiBadge, DecimalPipe, DatePipe, ManagerSidebar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="relative min-h-screen overflow-hidden bg-[#FBF7ED]">
-      @if (auth.isManager()) {
-        <app-manager-sidebar />
-      } @else {
-        <app-tenant-sidebar />
-      }
+      <app-manager-sidebar />
 
       <div class="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center opacity-[0.05]" style="background-image: url('/dashboard-bg.jpg');"></div>
       <div class="pointer-events-none absolute inset-0 -z-20 bg-linear-to-b from-[#FBF7ED]/60 via-[#FBF7ED]/85 to-[#FBF7ED]"></div>
@@ -201,28 +195,26 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
               }
 
               <!-- Nút hành động -->
-              @if (auth.isManager()) {
-                <div class="relative flex flex-wrap gap-3 pt-6 border-t border-[#F1EBD8]">
+              <div class="relative flex flex-wrap gap-3 pt-6 border-t border-[#F1EBD8]">
+                <a
+                  [routerLink]="['/rooms', r.id, 'edit']"
+                  class="rounded-full bg-[#F1EBD8] px-6 py-2.5 text-sm font-semibold text-[#221D0F] transition hover:bg-[#E9E4D6]"
+                >
+                  Sửa thông tin
+                </a>
+                @if (r.status === 'available') {
                   <a
-                    [routerLink]="['/rooms', r.id, 'edit']"
-                    class="rounded-full bg-[#F1EBD8] px-6 py-2.5 text-sm font-semibold text-[#221D0F] transition hover:bg-[#E9E4D6]"
+                    [routerLink]="['/contracts/new']"
+                    [queryParams]="{ room_id: r.id }"
+                    class="flex items-center gap-2 rounded-full bg-[#FFC629] px-6 py-2.5 text-sm font-semibold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764]"
                   >
-                    Sửa thông tin
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Tạo hợp đồng
                   </a>
-                  @if (r.status === 'available') {
-                    <a
-                      [routerLink]="['/contracts/new']"
-                      [queryParams]="{ room_id: r.id }"
-                      class="flex items-center gap-2 rounded-full bg-[#FFC629] px-6 py-2.5 text-sm font-semibold text-[#221D0F] shadow-sm transition hover:bg-[#FFD764]"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      Tạo hợp đồng
-                    </a>
-                  }
-                </div>
-              }
+                }
+              </div>
             </div>
           }
 
@@ -276,10 +268,9 @@ const ROOM_STATUS_LABEL: Record<RoomStatus, string> = {
     </div>
   `,
 })
-export class RoomDetailPage {
+export class ManagerRoomDetailPage {
   id = input.required<string>();
 
-  auth = inject(AuthService);
   private roomsService = inject(RoomsService);
   private contractsService = inject(ContractsService);
 
