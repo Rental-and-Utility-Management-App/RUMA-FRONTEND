@@ -125,12 +125,17 @@ export class InvoicesService {
   /**
    * Điền chỉ số điện/nước thật cho 1 hóa đơn đang ở trạng thái draft, hệ
    * thống tự tính lại total_amount và chuyển hóa đơn sang unpaid.
+   *
+   * LƯU Ý: backend (ConfirmDraftInvoice) trả về `data: null` khi thành công
+   * (chỉ update, không trả lại invoice) -> KHÔNG được check `!res.data` để
+   * xác định lỗi, chỉ cần check `res.success`. Trước đây check cả `!res.data`
+   * khiến case thành công (success=true, data=null) bị coi là lỗi và ném
+   * chính message thành công vào toast.error().
    */
-  async confirmDraft(id: string, payload: ConfirmDraftInvoicePayload): Promise<Invoice> {
+  async confirmDraft(id: string, payload: ConfirmDraftInvoicePayload): Promise<void> {
     const res = await firstValueFrom(
-      this.http.put<ApiResponse<Invoice>>(`${BASE}/${id}/confirm`, payload)
+      this.http.put<ApiResponse<null>>(`${BASE}/${id}/confirm`, payload)
     );
-    if (!res.success || !res.data) throw new Error(res.message || 'Xác nhận hóa đơn thất bại');
-    return res.data;
+    if (!res.success) throw new Error(res.message || 'Xác nhận hóa đơn thất bại');
   }
 }

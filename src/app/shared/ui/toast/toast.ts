@@ -96,7 +96,7 @@ export class ToastService {
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="fixed top-4 right-4 z-[100] flex w-full max-w-sm flex-col gap-3 pointer-events-none">
+    <div class="fixed top-4 right-4 z-100 flex w-full max-w-sm flex-col gap-3 pointer-events-none">
       @for (t of toast.toasts(); track t.id) {
         <div
           class="pointer-events-auto relative overflow-hidden rounded-2xl border shadow-lg animate-[toast-in_0.25s_ease-out]"
@@ -113,7 +113,7 @@ export class ToastService {
               @if (t.title) {
                 <p class="text-sm font-semibold text-[#221D0F]">{{ t.title }}</p>
               }
-              <p class="text-sm text-[#3F3A2E] whitespace-pre-line break-words">{{ t.message }}</p>
+              <p class="text-sm text-[#3F3A2E] whitespace-pre-line wrap-break-word">{{ t.message }}</p>
             </div>
             <button
               type="button"
