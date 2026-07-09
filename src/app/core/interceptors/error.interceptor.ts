@@ -22,12 +22,11 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
         auth.logout();
         toast.error('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
         router.navigate(['/login']);
-      } else {
-        // err.error?.message là chuỗi tiếng Việt sẵn sàng hiển thị cho user (theo brief mục 2)
-        // Hiển thị popup thông báo lỗi cho mọi lỗi API khác (400, 403, 404, 409, 500...).
-        const message = err.error?.message ?? err.message ?? 'Có lỗi xảy ra, vui lòng thử lại.';
-        toast.error(message);
       }
+      // Lỗi nghiệp vụ khác (400, 403, 404, 409, 500...) KHÔNG tự show toast ở
+      // đây nữa — mọi nơi gọi API đều đã có catch riêng và tự toast.error()
+      // với message phù hợp context (vd "Gán phòng thất bại."). Nếu interceptor
+      // cũng toast, người dùng sẽ thấy 2 toast trùng lặp cho cùng 1 lỗi.
       return throwError(() => err);
     })
   );
