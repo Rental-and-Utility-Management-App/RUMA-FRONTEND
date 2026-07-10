@@ -43,16 +43,22 @@ export class UsersService {
     return res.data;
   }
 
+  /**
+   * Backend (UpdateTenant) trả `data: null` khi thành công — chỉ có `success`
+   * và `message`, không trả lại user đã cập nhật. Vì vậy ở đây KHÔNG được đòi
+   * hỏi `res.data` như getById/create, nếu không mọi lần update thành công sẽ
+   * bị coi là lỗi (throw đúng message thành công nhưng hiển thị dưới dạng toast đỏ).
+   * Backend chặn deactivate nếu đang có hợp đồng active (luật #7) — message lỗi
+   * tiếng Việt sẽ hiện thẳng.
+   */
   async update(
     id: string,
     payload: Partial<Pick<UserResponse, 'full_name' | 'email' | 'is_active'>>
-  ): Promise<UserResponse> {
-    // Backend chặn deactivate nếu đang có hợp đồng active (luật #7) — message lỗi tiếng Việt sẽ hiện thẳng
+  ): Promise<void> {
     const res = await firstValueFrom(
-      this.http.put<ApiResponse<UserResponse>>(`${BASE}/${id}`, payload)
+      this.http.put<ApiResponse<UserResponse | null>>(`${BASE}/${id}`, payload)
     );
-    if (!res.success || !res.data) throw new Error(res.message || 'Cập nhật thất bại');
-    return res.data;
+    if (!res.success) throw new Error(res.message || 'Cập nhật thất bại');
   }
 
   async assignRoom(id: string, roomId: string): Promise<UserResponse> {
