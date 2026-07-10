@@ -112,6 +112,16 @@ export class TenantFormPage {
 
   async onSubmit(event: Event) {
     event.preventDefault();
+
+    if (!this.fullName().trim() || !this.phone().trim() || !this.password()) {
+      this.toast.error('Vui lòng điền đầy đủ thông tin bắt buộc.');
+      return;
+    }
+    if (this.password().length < 6) {
+      this.toast.error('Mật khẩu tạm phải có tối thiểu 6 ký tự.');
+      return;
+    }
+
     this.saving.set(true);
     try {
       await this.usersService.create({

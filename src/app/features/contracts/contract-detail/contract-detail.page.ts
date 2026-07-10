@@ -328,14 +328,16 @@ export class ContractDetailPage {
 
     effect(() => {
       const h = this.txHeader()?.nativeElement;
-      const cards = this.txCards().map(c => c.nativeElement).filter((el): el is HTMLElement => !!el);
 
       if (this.depositTx.value() && !this.txAnimated) {
         this.txAnimated = true;
         setTimeout(() => {
+          const cards = this.txCards().map(c => c.nativeElement).filter((el): el is HTMLElement => !!el);
           const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
           if (h) tl.fromTo(h, { y: 10, opacity: 0 }, { y: 0, opacity: 1, duration: 0.3 });
-          if (cards.length) tl.fromTo(cards, { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, stagger: 0.08 }, '-=0.1');
+          if (cards.length) {
+            tl.fromTo(cards, { y: 16, opacity: 0 }, { y: 0, opacity: 1, duration: 0.35, stagger: 0.08 }, '-=0.1');
+          }
         }, 50);
       }
     });
