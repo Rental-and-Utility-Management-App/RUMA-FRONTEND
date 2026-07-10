@@ -351,7 +351,14 @@ export class TenantDetailPage {
     this.togglingActive.set(true);
     this.confirm.setProcessing(true);
     try {
-      await this.usersService.update(this.id(), { is_active: !current.is_active });
+      // Backend (UpdateTenant) yêu cầu email là field bắt buộc trong request body
+      // (binding:"required,email"), nên phải gửi kèm email hiện tại ở đây — nếu
+      // chỉ gửi is_active, ShouldBindJSON sẽ fail và trả về 400 "Dữ liệu đầu vào
+      // không hợp lệ" dù is_active hợp lệ.
+      await this.usersService.update(this.id(), {
+        email: current.email,
+        is_active: !current.is_active,
+      });
       this.tenant.reload();
       this.toast.success(current.is_active ? 'Đã khóa tài khoản.' : 'Đã mở khóa tài khoản.');
     } catch (err: any) {
