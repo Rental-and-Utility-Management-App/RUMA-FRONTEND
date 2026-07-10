@@ -14,6 +14,7 @@ import { UiInput } from '../../../shared/ui/input/input';
 import { UsersService } from '../../../core/services/users.service';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
 import { ToastService } from '../../../shared/ui/toast/toast';
+import { ConfirmService } from '../../../shared/ui/confirm/confirm';
 
 @Component({
   selector: 'app-tenant-form',
@@ -57,11 +58,39 @@ import { ToastService } from '../../../shared/ui/toast/toast';
 
                 <div class="flex flex-col gap-1.5">
                   <div class="flex items-end gap-2">
-                    <ui-input class="block w-full" label="Mật khẩu tạm (*)" type="password" [(value)]="password" />
+                    <div class="relative w-full">
+                      <ui-input
+                        class="block w-full"
+                        label="Mật khẩu tạm (*)"
+                        [type]="showPassword() ? 'text' : 'password'"
+                        [(value)]="password"
+                      />
+                      <button
+                        type="button"
+                        (click)="showPassword.set(!showPassword())"
+                        [attr.aria-label]="showPassword() ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'"
+                        class="absolute right-3 bottom-2.5 text-[#8A8270] hover:text-[#221D0F] transition-colors"
+                      >
+                        @if (showPassword()) {
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.542-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                          </svg>
+                        } @else {
+                          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          </svg>
+                        }
+                      </button>
+                    </div>
                     <button
                       type="button"
                       (click)="generatePassword()"
-                      class="mb-px shrink-0 rounded-xl bg-[#F1EBD8] px-4 py-2.5 text-xs font-semibold text-[#6B6455] transition hover:bg-[#E9E4D6] hover:text-[#221D0F]"
+                      [class.bg-[#FFC629]]="justGenerated()"
+                      [class.text-[#221D0F]]="justGenerated()"
+                      [class.bg-[#F1EBD8]]="!justGenerated()"
+                      [class.text-[#6B6455]]="!justGenerated()"
+                      class="mb-px shrink-0 rounded-xl px-4 py-2.5 text-xs font-semibold transition-colors duration-300 hover:bg-[#FFD764] hover:text-[#221D0F]"
                     >
                       Tạo ngẫu nhiên
                     </button>
@@ -94,12 +123,15 @@ export class TenantFormPage {
   router = inject(Router);
   private usersService = inject(UsersService);
   private toast = inject(ToastService);
+  private confirmService = inject(ConfirmService);
 
   fullName = signal('');
   phone = signal('');
   email = signal('');
   password = signal('');
   saving = signal(false);
+  showPassword = signal(false);
+  justGenerated = signal(false);
 
   private blob1 = viewChild<ElementRef<HTMLElement>>('blob1');
   private blob2 = viewChild<ElementRef<HTMLElement>>('blob2');
@@ -124,12 +156,22 @@ export class TenantFormPage {
   }
 
   generatePassword() {
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    // 14 ký tự, loại bỏ các ký tự dễ nhầm lẫn (0/O, 1/l/I), dùng crypto để random thật sự
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%';
+    const length = 14;
+    const randomValues = new Uint32Array(length);
+    crypto.getRandomValues(randomValues);
+
     let pwd = '';
-    for (let i = 0; i < 10; i++) {
-      pwd += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < length; i++) {
+      pwd += chars[randomValues[i] % chars.length];
     }
+
     this.password.set(pwd);
+    this.showPassword.set(true);
+
+    this.justGenerated.set(true);
+    setTimeout(() => this.justGenerated.set(false), 600);
   }
 
   async onSubmit(event: Event) {
@@ -151,7 +193,16 @@ export class TenantFormPage {
       return;
     }
 
+    const confirmed = await this.confirmService.ask({
+      title: 'Xác nhận tạo tài khoản',
+      message: `Tạo tài khoản cho "${this.fullName().trim()}" với email ${this.email().trim()}?`,
+      confirmText: 'Tạo tài khoản',
+      cancelText: 'Hủy',
+    });
+    if (!confirmed) return;
+
     this.saving.set(true);
+    this.confirmService.setProcessing(true);
     try {
       await this.usersService.create({
         full_name: this.fullName(),
@@ -166,6 +217,7 @@ export class TenantFormPage {
       this.toast.error(err?.error?.message ?? err?.message ?? 'Tạo tài khoản thất bại.');
     } finally {
       this.saving.set(false);
+      this.confirmService.setProcessing(false);
     }
   }
 }
