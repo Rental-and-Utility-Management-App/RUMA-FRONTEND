@@ -20,6 +20,7 @@ import { RoomsService } from '../../../core/services/rooms.service';
 import { UsersService } from '../../../core/services/users.service';
 import { Room, UserResponse } from '../../../core/models';
 import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
+import { ConfirmService } from '../../../shared/ui/confirm/confirm';
 
 @Component({
   selector: 'app-contract-form',
@@ -138,7 +139,16 @@ import { ManagerSidebar } from '../../components/sidebars/manager-sidebar';
               <div class="mb-6">
                 <h3 class="text-base font-bold text-[#221D0F] mb-4">Giá trị giao dịch</h3>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <ui-input class="block w-full" label="Giá thuê / tháng (₫) (*)" type="number" [(value)]="monthlyRent" />
+                  <div class="flex flex-col gap-1.5">
+                    <ui-input
+                      class="block w-full"
+                      label="Giá thuê / tháng (₫)"
+                      type="number"
+                      [value]="monthlyRent()"
+                      [disabled]="true"
+                    />
+                    <p class="text-xs text-[#8A8270]">Giá thuê được lấy tự động theo phòng đã chọn, không thể chỉnh sửa ở đây.</p>
+                  </div>
                   <ui-input class="block w-full" label="Tổng tiền cọc cam kết (₫) (*)" type="number" [(value)]="depositAmount" />
                 </div>
               </div>
@@ -185,6 +195,7 @@ export class ContractFormPage {
   private toast = inject(ToastService);
   private roomsService = inject(RoomsService);
   private usersService = inject(UsersService);
+  private confirmService = inject(ConfirmService);
 
   // Dùng lại resource phòng đã có sẵn ở RoomsService (giống pattern trong tenant-detail.ts).
   rooms = this.roomsService.roomsResource;
@@ -206,6 +217,7 @@ export class ContractFormPage {
 
   roomId = signal('');
   selectedTenantIds = signal<string[]>([]);
+  // Giá thuê / tháng luôn được suy ra từ phòng đã chọn (readonly, không cho sửa tay ở form này).
   monthlyRent = signal('0');
   depositAmount = signal('0');
   startDate = signal('');
@@ -251,6 +263,7 @@ export class ContractFormPage {
 
     // Khi đổi phòng: tự gợi ý giá thuê theo phòng, và cắt bớt danh sách khách thuê
     // đã chọn nếu vượt quá capacity của phòng mới.
+    // Lưu ý: monthlyRent chỉ được set ở đây, form không cho người dùng chỉnh tay.
     effect(() => {
       const room = this.selectedRoom();
       if (!room) return;
@@ -293,7 +306,17 @@ export class ContractFormPage {
     event.preventDefault();
     if (!this.canSubmit()) return;
 
+    // Xác nhận trước khi thực sự ký kết hợp đồng.
+    const ok = await this.confirmService.ask({
+      title: 'Xác nhận ký kết hợp đồng',
+      message: `Bạn có chắc chắn muốn khởi tạo hợp đồng cho phòng đã chọn với ${this.selectedTenantIds().length} khách thuê, giá thuê ${this.monthlyRent()}₫/tháng?`,
+      confirmText: 'Ký kết',
+      cancelText: 'Hủy bỏ',
+    });
+    if (!ok) return;
+
     this.saving.set(true);
+    this.confirmService.setProcessing(true);
     try {
       await this.contractsService.create({
         room_id: this.roomId(),
@@ -311,6 +334,7 @@ export class ContractFormPage {
       this.toast.error(err?.error?.message ?? err?.message ?? 'Tạo hợp đồng thất bại.');
     } finally {
       this.saving.set(false);
+      this.confirmService.setProcessing(false);
     }
   }
 }

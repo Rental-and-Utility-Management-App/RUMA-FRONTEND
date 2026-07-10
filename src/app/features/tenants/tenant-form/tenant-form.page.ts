@@ -34,7 +34,7 @@ import { ToastService } from '../../../shared/ui/toast/toast';
 
       <div class="relative md:pl-64">
         <div class="max-w-3xl mx-auto p-6 md:p-10">
-          
+
           <div #hero class="mb-8 opacity-0">
             <a routerLink="/tenants" class="inline-flex items-center gap-2 text-sm font-medium text-[#8A8270] hover:text-[#B8860B] transition-colors mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -53,8 +53,21 @@ import { ToastService } from '../../../shared/ui/toast/toast';
               <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
                 <ui-input class="block w-full" label="Họ và tên (*)" [(value)]="fullName" />
                 <ui-input class="block w-full" label="Số điện thoại (*)" type="tel" [(value)]="phone" />
-                <ui-input class="block w-full" label="Email (tuỳ chọn)" type="email" [(value)]="email" />
-                <ui-input class="block w-full" label="Mật khẩu tạm (*)" type="password" [(value)]="password" />
+                <ui-input class="block w-full" label="Email (*)" type="email" [(value)]="email" />
+
+                <div class="flex flex-col gap-1.5">
+                  <div class="flex items-end gap-2">
+                    <ui-input class="block w-full" label="Mật khẩu tạm (*)" type="password" [(value)]="password" />
+                    <button
+                      type="button"
+                      (click)="generatePassword()"
+                      class="mb-px shrink-0 rounded-xl bg-[#F1EBD8] px-4 py-2.5 text-xs font-semibold text-[#6B6455] transition hover:bg-[#E9E4D6] hover:text-[#221D0F]"
+                    >
+                      Tạo ngẫu nhiên
+                    </button>
+                  </div>
+                  <span class="text-xs text-[#8A8270] pl-1">Tối thiểu 6 ký tự — có thể nhập tay hoặc bấm tạo ngẫu nhiên</span>
+                </div>
               </div>
 
               <div class="flex flex-wrap items-center gap-3 pt-2">
@@ -110,13 +123,29 @@ export class TenantFormPage {
     });
   }
 
+  generatePassword() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+    let pwd = '';
+    for (let i = 0; i < 10; i++) {
+      pwd += chars[Math.floor(Math.random() * chars.length)];
+    }
+    this.password.set(pwd);
+  }
+
   async onSubmit(event: Event) {
     event.preventDefault();
 
-    if (!this.fullName().trim() || !this.phone().trim() || !this.password()) {
+    if (!this.fullName().trim() || !this.phone().trim() || !this.email().trim() || !this.password()) {
       this.toast.error('Vui lòng điền đầy đủ thông tin bắt buộc.');
       return;
     }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(this.email().trim())) {
+      this.toast.error('Email không hợp lệ.');
+      return;
+    }
+
     if (this.password().length < 6) {
       this.toast.error('Mật khẩu tạm phải có tối thiểu 6 ký tự.');
       return;
@@ -128,7 +157,7 @@ export class TenantFormPage {
         full_name: this.fullName(),
         phone: this.phone(),
         password: this.password(),
-        email: this.email() || undefined,
+        email: this.email().trim(),
       });
       this.usersService.usersResource.reload();
       this.toast.success('Tạo tài khoản thành công.');
